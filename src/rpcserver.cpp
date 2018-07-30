@@ -136,11 +136,6 @@ CAmount AmountFromValue(const UniValue& value)
     return nAmount;
 }
 
-UniValue ValueFromAmount(const CAmount& amount)
-{
-    return (double)amount / (double)COIN;
-}
-
 uint256 ParseHashV(const UniValue& v, string strName)
 {
     string strHex;
