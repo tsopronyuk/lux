@@ -1,25 +1,23 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2014 The Bitcoin developers
+// Copyright (c) 2009-2017 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "wallet_ismine.h"
+#include <script/ismine.h>
 
-#include "key.h"
-#include "keystore.h"
-#include "script/script.h"
-#include "script/standard.h"
+#include <key.h>
+#include <keystore.h>
+#include <script/script.h>
+#include <script/sign.h>
 
-#include <boost/foreach.hpp>
 
-using namespace std;
+typedef std::vector<unsigned char> valtype;
 
-typedef vector<unsigned char> valtype;
-
-unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore)
+unsigned int HaveKeys(const std::vector<valtype>& pubkeys, const CKeyStore& keystore)
 {
     unsigned int nResult = 0;
-    BOOST_FOREACH (const valtype& pubkey, pubkeys) {
+    for (const valtype& pubkey : pubkeys)
+    {
         CKeyID keyID = CPubKey(pubkey).GetID();
         if (keystore.HaveKey(keyID))
             ++nResult;
@@ -48,7 +46,8 @@ isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest, bool& i
 isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& isInvalid, SigVersion sigversion)
 {
     isInvalid = false;
-    vector<valtype> vSolutions;
+
+    std::vector<valtype> vSolutions;
     txnouttype whichType;
     if (!Solver(scriptPubKey, whichType, vSolutions)) {
         if (keystore.HaveWatchOnly(scriptPubKey))
@@ -57,7 +56,8 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
     }
 
     CKeyID keyID;
-    switch (whichType) {
+    switch (whichType)
+    {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITNESS_UNKNOWN:
@@ -96,7 +96,8 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
         if (keystore.HaveKey(keyID))
             return ISMINE_SPENDABLE;
         break;
-    case TX_SCRIPTHASH: {
+    case TX_SCRIPTHASH:
+    {
         CScriptID scriptID = CScriptID(uint160(vSolutions[0]));
         CScript subscript;
         if (keystore.GetCScript(scriptID, subscript)) {
@@ -106,7 +107,8 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
         }
         break;
     }
-    case TX_WITNESS_V0_SCRIPTHASH: {
+    case TX_WITNESS_V0_SCRIPTHASH:
+    {
         if (!keystore.HaveCScript(CScriptID(CScript() << OP_0 << vSolutions[0]))) {
             break;
         }
@@ -121,13 +123,15 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
         }
         break;
     }
-    case TX_MULTISIG: {
+
+    case TX_MULTISIG:
+    {
         // Only consider transactions "mine" if we own ALL the
-        // keys involved. multi-signature transactions that are
+        // keys involved. Multi-signature transactions that are
         // partially owned (somebody else has a key that can spend
         // them) enable spend-out-from-under-you attacks, especially
         // in shared-wallet situations.
-        vector<valtype> keys(vSolutions.begin() + 1, vSolutions.begin() + vSolutions.size() - 1);
+        std::vector<valtype> keys(vSolutions.begin()+1, vSolutions.begin()+vSolutions.size()-1);
         if (sigversion != SIGVERSION_BASE) {
             for (size_t i = 0; i < keys.size(); i++) {
                 if (keys[i].size() != 33) {
@@ -140,11 +144,12 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
             return ISMINE_SPENDABLE;
         break;
     }
-
-    default: break;
     }
 
-    if (keystore.HaveWatchOnly(scriptPubKey))
-        return ISMINE_WATCH_ONLY;
+    if (keystore.HaveWatchOnly(scriptPubKey)) {
+        // TODO: This could be optimized some by doing some work after the above solver
+        SignatureData sigs;
+        return ProduceSignature(DummySignatureCreator(&keystore), scriptPubKey, sigs) ? ISMINE_WATCH_SOLVABLE : ISMINE_WATCH_UNSOLVABLE;
+    }
     return ISMINE_NO;
 }
