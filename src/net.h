@@ -6,6 +6,7 @@
 #ifndef BITCOIN_NET_H
 #define BITCOIN_NET_H
 
+#include <addrdb.h>
 #include "bloom.h"
 #include "compat.h"
 #include "hash.h"
@@ -224,68 +225,6 @@ public:
     int readHeader(const char* pch, unsigned int nBytes);
     int readData(const char* pch, unsigned int nBytes);
 };
-
-
-typedef enum BanReason
-{
-    BanReasonUnknown     = 0,
-    BanMisbehaving       = 1,
-    BanReasonManually    = 2
-} BanReason;
-
-class CBanEntry
-{
-public:
-    static const int CURRENT_VERSION=1;
-    int nVersion;
-    int64_t nCreateTime;
-    int64_t nBanUntil;
-    uint8_t banReason;
-
-    CBanEntry()
-    {
-        SetNull();
-    }
-
-    CBanEntry(int64_t nCreateTimeIn)
-    {
-        SetNull();
-        nCreateTime = nCreateTimeIn;
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(this->nVersion);
-        nVersion = this->nVersion;
-        READWRITE(nCreateTime);
-        READWRITE(nBanUntil);
-        READWRITE(banReason);
-    }
-
-    void SetNull()
-    {
-        nVersion = CBanEntry::CURRENT_VERSION;
-        nCreateTime = 0;
-        nBanUntil = 0;
-        banReason = BanReasonUnknown;
-    }
-
-    std::string banReasonToString()
-    {
-        switch (banReason) {
-            case BanMisbehaving:
-                return "lux node misbehabing";
-            case BanReasonManually:
-                return "manually";
-            default:
-                return "unknown";
-        }
-    }
-};
-
-typedef std::map<CSubNet, CBanEntry> banmap_t;
 
 
 /** Information about a peer */
@@ -766,29 +705,6 @@ void SendDarkSendElectionEntry(const CTxIn &vin, const CService addr, const std:
 void RelayDarkSendElectionEntryPing(const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop);
 void SendDarkSendElectionEntryPing(const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop);
 void RelayDarkSendCompletedTransaction(const int sessionID, const bool error, const std::string errorMessage);
-
-/** Access to the (IP) address database (peers.dat) */
-class CAddrDB
-{
-private:
-    boost::filesystem::path pathAddr;
-
-public:
-    CAddrDB();
-    bool Write(const CAddrMan& addr);
-    bool Read(CAddrMan& addr);
-};
-
-/** Access to the banlist database (banlist.dat) */
-class CBanListDB
-{
-private:
-    boost::filesystem::path pathBanlist;
-public:
-    CBanListDB();
-    bool Write(const banmap_t& banSet);
-    bool Read(banmap_t& banSet);
-};
 
 void DumpBanlist();
 
