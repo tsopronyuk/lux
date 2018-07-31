@@ -1,5 +1,5 @@
-// Copyright 2015 Bitcoin Core Developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Copyright 2014 BitPay Inc.
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <iomanip>
@@ -54,13 +54,6 @@ string UniValue::write(unsigned int prettyIndent,
     case VNUM:
         s += val;
         break;
-    case VREAL:
-        {
-            std::stringstream ss;
-            ss << std::showpoint << std::fixed << std::setprecision(8) << get_real();
-            s += ss.str();
-        }
-        break;
     case VBOOL:
         s += (val == "1" ? "true" : "false");
         break;
@@ -86,8 +79,6 @@ void UniValue::writeArray(unsigned int prettyIndent, unsigned int indentLevel, s
         s += values[i].write(prettyIndent, indentLevel + 1);
         if (i != (values.size() - 1)) {
             s += ",";
-            if (prettyIndent)
-                s += " ";
         }
         if (prettyIndent)
             s += "\n";
