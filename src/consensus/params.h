@@ -45,31 +45,38 @@ struct BIP9Deployment {
     static constexpr int64_t ALWAYS_ACTIVE = -1;
 };
 
+/**
+ * Parameters that influence chain consensus.
+ */
+struct Params {
+    bool fPowAllowMinDifficultyBlocks;
+    bool fPowNoRetargeting;
+    BIP9Deployment vDeployments[MAX_VERSION_BITS_DEPLOYMENTS];
+    /** Used to check majorities for block version upgrade */
+    int nMajorityEnforceBlockUpgrade;
+    int nMajorityRejectBlockOutdated;
+    int nMajorityWindow;
+    /** Proof of work parameters */
+    int nLastPOWBlock;
     /**
-     * Parameters that influence chain consensus.
+     * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
+     * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.
+     * Examples: 1916 for 95%, 1512 for testchains.
      */
-    struct Params {
-        bool fPowAllowMinDifficultyBlocks;
-        bool fPowNoRetargeting;
-        BIP9Deployment vDeployments[MAX_VERSION_BITS_DEPLOYMENTS];
-        /** Used to check majorities for block version upgrade */
-        int nMajorityEnforceBlockUpgrade;
-        int nMajorityRejectBlockOutdated;
-        int nMajorityWindow;
-        /** Proof of work parameters */
-        int nLastPOWBlock;
-        /**
-         * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargetting period,
-         * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.
-         * Examples: 1916 for 95%, 1512 for testchains.
-         */
-        uint32_t nRuleChangeActivationThreshold;
-        uint32_t nMinerConfirmationWindow;
-        int64_t nPowTargetSpacing;
-        int64_t nPowTargetTimespan;
-        uint256 powLimit;
-        uint256 hashGenesisBlock;
-    };
+    uint32_t nRuleChangeActivationThreshold;
+    uint32_t nMinerConfirmationWindow;
+    int64_t nPowTargetSpacing;
+    int64_t nPowTargetTimespan;
+    uint256 powLimit;
+    uint256 hashGenesisBlock;
+    int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
+    uint256 nMinimumChainWork;
+    uint256 defaultAssumeValid;
+    int nSubsidyHalvingInterval;
+    /** Block height and hash at which BIP34 becomes active */
+    //int BIP34Height;
+    //uint256 BIP34Hash;
+};
 } // namespace Consensus
 
 #endif // BITCOIN_CONSENSUS_PARAMS_H
