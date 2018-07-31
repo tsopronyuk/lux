@@ -96,7 +96,6 @@ BITCOIN_CORE_H = \
   checkpoints.h \
   checkqueue.h \
   clientversion.h \
-  coincontrol.h \
   coins.h \
   compat.h \
   compat/sanity.h \
@@ -105,9 +104,7 @@ BITCOIN_CORE_H = \
   consensus/params.h \
   core_io.h \
   core_memusage.h \
-  crypter.h \
   darksend.h \
-  db.h \
   hash.h \
   indirectmap.h \
   init.h \
@@ -171,9 +168,12 @@ BITCOIN_CORE_H = \
   validationinterface.h \
   version.h \
   versionbits.h \
-  wallet.h \
+  wallet/coincontrol.h \
+  wallet/crypter.h \
+  wallet/db.h \
+  wallet/wallet.h \
+  wallet/walletdb.h \
   wallet_ismine.h \
-  walletdb.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h \
   zmq/zmqnotificationinterface.h \
@@ -250,21 +250,20 @@ libbitcoin_wallet_a_SOURCES = \
   activemasternode.cpp \
   bip38.cpp \
   darksend.cpp \
-  db.cpp \
-  crypter.cpp \
   instantx.cpp \
   masternode.cpp \
   masternodeconfig.cpp \
-  rpcdump.cpp \
-  rpcwallet.cpp \
   stake.cpp \
-  wallet.cpp \
+  wallet/crypter.cpp \
+  wallet/db.cpp \
+  wallet/rpcdump.cpp \
+  wallet/rpcwallet.cpp \
+  wallet/wallet.cpp \
+  wallet/walletdb.cpp \
   wallet_ismine.cpp \
-  walletdb.cpp \
   rbf.cpp \
   script/sign.cpp \
   miner.cpp \
-  crypter.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
