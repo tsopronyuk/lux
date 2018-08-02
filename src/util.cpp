@@ -123,8 +123,6 @@ bool fEnableDarksend = false;
 std::vector<int64_t> darkSendDenominations;
 string strBudgetMode = "";
 
-map<string, string> mapArgs;
-map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
 bool fDebugMnSecurity = false;
 bool fPrintToConsole = false;
@@ -132,6 +130,7 @@ bool fPrintToDebugLog = true;
 bool fDaemon = false;
 bool fServer = false;
 string strMiscWarning;
+ArgsManager gArgs;
 bool fLogTimestamps = false;
 bool fLogIPs = false;
 volatile bool fReopenDebugLog = false;
@@ -317,8 +316,9 @@ static void InterpretNegativeSetting(string name, map<string, string>& mapSettin
     }
 }
 
-void ParseParameters(int argc, const char* const argv[])
+void ArgsManager::ParseParameters(int argc, const char* const argv[])
 {
+    LOCK(cs_args);
     mapArgs.clear();
     mapMultiArgs.clear();
 
@@ -343,76 +343,72 @@ void ParseParameters(int argc, const char* const argv[])
         // If both --foo and -foo are set, the last takes effect.
         if (str.length() > 1 && str[1] == '-')
             str = str.substr(1);
+        InterpretNegativeSetting(str, strValue);
 
         mapArgs[str] = strValue;
         mapMultiArgs[str].push_back(strValue);
     }
-
-    // New 0.6 features:
-    BOOST_FOREACH (const PAIRTYPE(string, string) & entry, mapArgs) {
-        // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
-        InterpretNegativeSetting(entry.first, mapArgs);
-    }
 }
 
-bool IsArgSet(const std::string& strArg)
+std::vector<std::string> ArgsManager::GetArgs(const std::string& strArg) const
 {
+    LOCK(cs_args);
+    auto it = mapMultiArgs.find(strArg);
+    if (it != mapMultiArgs.end()) return it->second;
+    return {};
+}
+
+bool ArgsManager::IsArgSet(const std::string& strArg) const
+{
+    LOCK(cs_args);
     return mapArgs.count(strArg);
 }
 
-std::string GetArg(const std::string& strArg, const std::string& strDefault)
+std::string ArgsManager::GetArg(const std::string& strArg, const std::string& strDefault) const
 {
-    if (mapArgs.count(strArg))
-        return mapArgs[strArg];
+    LOCK(cs_args);
+    auto it = mapArgs.find(strArg);
+    if (it != mapArgs.end()) return it->second;
     return strDefault;
 }
 
-int64_t GetArg(const std::string& strArg, int64_t nDefault)
+int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault) const
 {
-    if (mapArgs.count(strArg))
-        return atoi64(mapArgs[strArg]);
+    LOCK(cs_args);
+    auto it = mapArgs.find(strArg);
+    if (it != mapArgs.end()) return atoi64(it->second);
     return nDefault;
 }
 
-bool GetBoolArg(const std::string& strArg, bool fDefault)
+bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
 {
-    if (mapArgs.count(strArg)) {
-
-        int n = fDefault ? 1 : 0;
-
-        // sample: -testnet
-        if (mapArgs[strArg].empty())
-            return true;
-
-        try {
-            // stoi() doesn't handle boolean strings
-            if (mapArgs[strArg] == "false")
-                n = 0;
-            else if (mapArgs[strArg] == "true")
-                n = 1;
-            else
-                n = std::stoi(mapArgs[strArg]);
-        } catch (const std::exception& e) {
-        }
-        return (n != 0);
-    }
+    LOCK(cs_args);
+    auto it = mapArgs.find(strArg);
+    if (it != mapArgs.end()) return InterpretBool(it->second);
     return fDefault;
 }
 
-bool SoftSetArg(const std::string& strArg, const std::string& strValue)
+bool ArgsManager::SoftSetArg(const std::string& strArg, const std::string& strValue)
 {
-    if (mapArgs.count(strArg))
-        return false;
-    mapArgs[strArg] = strValue;
+    LOCK(cs_args);
+    if (IsArgSet(strArg)) return false;
+    ForceSetArg(strArg, strValue);
     return true;
 }
 
-bool SoftSetBoolArg(const std::string& strArg, bool fValue)
+bool ArgsManager::SoftSetBoolArg(const std::string& strArg, bool fValue)
 {
     if (fValue)
         return SoftSetArg(strArg, std::string("1"));
     else
         return SoftSetArg(strArg, std::string("0"));
+}
+
+void ArgsManager::ForceSetArg(const std::string& strArg, const std::string& strValue)
+{
+    LOCK(cs_args);
+    mapArgs[strArg] = strValue;
+    mapMultiArgs[strArg] = {strValue};
 }
 
 static std::string FormatException(std::exception* pex, const char* pszThread)
