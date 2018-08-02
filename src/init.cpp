@@ -38,6 +38,7 @@
 #include "utilmoneystr.h"
 #include "validationinterface.h"
 #include "random.h"
+#include "rpcblockchain.h"
 #ifdef ENABLE_WALLET
 #include "db.h"
 #include "wallet.h"
@@ -305,8 +306,15 @@ bool static Bind(const CService& addr, unsigned int flags)
     return true;
 }
 
+void OnRPCStarted()
+{
+    uiInterface.NotifyBlockTip.connect(&RPCNotifyBlockChange);
+}
+
 void OnRPCStopped()
 {
+    uiInterface.NotifyBlockTip.disconnect(&RPCNotifyBlockChange);
+    RPCNotifyBlockChange(false, NULL);
     cvBlockChange.notify_all();
     LogPrint("rpc", "RPC stopped.\n");
 }
@@ -343,6 +351,8 @@ std::string HelpMessage(HelpMessageMode mode)
     }
     strUsage += "  -datadir=<dir>         " + _("Specify data directory") + "\n";
     strUsage += "  -dbcache=<n>           " + strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache) + "\n";
+    strUsage += "  -nlogfile=<n>           " + _("Set the number of debug log files") + "\n";
+    strUsage += "  -logfilesize=<n>           " + _("Set the size of debug log files(MB)") + "\n";
     strUsage += "  -loadblock=<file>      " + _("Imports blocks from external blk000??.dat file") + " " + _("on startup") + "\n";
     strUsage += "  -maxorphantx=<n>       " + strprintf(_("Keep at most <n> unconnectable transactions in memory (default: %u)"), DEFAULT_MAX_ORPHAN_TRANSACTIONS) + "\n";
     strUsage += "  -par=<n>               " + strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"), -(int)boost::thread::hardware_concurrency(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS) + "\n";
@@ -538,11 +548,14 @@ std::string LicenseInfo()
            "\n";
 }
 
-static void BlockNotifyCallback(const uint256& hashNewTip)
+static void BlockNotifyCallback(bool initialSync, const CBlockIndex *pBlockIndex)
 {
+    if (initialSync || !pBlockIndex)
+        return;
+
     std::string strCmd = GetArg("-blocknotify", "");
 
-    boost::replace_all(strCmd, "%s", hashNewTip.GetHex());
+    boost::replace_all(strCmd, "%s", pBlockIndex->GetBlockHash().GetHex());
     boost::thread t(runCommand, strCmd); // thread runs free
 }
 
@@ -839,14 +852,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetArg("-prune", 0)) {
         if (GetBoolArg("-txindex", false))
             return InitError(_("Prune mode is incompatible with -txindex."));
-#ifdef ENABLE_WALLET
-        if (!GetBoolArg("-disablewallet", false)) {
-            if (SoftSetBoolArg("-disablewallet", true))
-                LogPrintf("%s : parameter interaction: -prune -> setting -disablewallet=1\n", __func__);
-            else
-                return InitError(_("Can't run with a wallet in prune mode."));
-        }
-#endif
+//#ifdef ENABLE_WALLET
+//        if (!GetBoolArg("-disablewallet", false)) {
+//            if (SoftSetBoolArg("-disablewallet", true))
+//                LogPrintf("%s : parameter interaction: -prune -> setting -disablewallet=1\n", __func__);
+//            else
+//                return InitError(_("Can't run with a wallet in prune mode."));
+//        }
+//#endif
     }
 
     // ********************************************************* Step 3: parameter-to-internal-flags
@@ -1059,6 +1072,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
      */
     if (fServer) {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
+        RPCServer::OnStarted(&OnRPCStarted);
         RPCServer::OnStopped(&OnRPCStopped);
         RPCServer::OnPreCommand(&OnRPCPreCommand);
         StartRPCThreads();
@@ -1473,6 +1487,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     fLogEvents = false;
                     pblocktree->WriteFlag("logevents", fLogEvents);
                 }
+
+                nLogFile = GetArg("-nlogfile", 10);
+                LogFileSize = GetArg("-logfilesize", 10);
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.

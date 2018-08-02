@@ -63,6 +63,7 @@ public:
     bool WriteFlag(const std::string& name, bool fValue);
     bool ReadFlag(const std::string& name, bool& fValue);
     bool LoadBlockIndexGuts();
+    int ReadHeightIndex(int low, int high, int minconf, std::vector<std::vector<uint256>> &blocksOfHashes, std::set<dev::h160> const &addresses);
 };
 
 #endif // BITCOIN_TXDB_H

@@ -12,6 +12,7 @@
 #include "rpcserver.h"
 #include "sync.h"
 #include "util.h"
+#include "rpcblockchain.h"
 
 #include <stdint.h>
 
@@ -500,6 +501,332 @@ UniValue listcontracts(const UniValue& params, bool fHelp)
         }
 
         return result;
+}
+
+size_t parseUInt(const UniValue& val, size_t defaultVal) {
+    if (val.isNull()) {
+        return defaultVal;
+    } else {
+        int n = val.get_int();
+        if (n < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMS, "Expects unsigned integer");
+        }
+
+        return n;
+    }
+}
+
+int parseBlockHeight(const UniValue& val) {
+    if (val.isStr()) {
+        auto blockKey = val.get_str();
+
+        if (blockKey == "latest") {
+            return latestblock.height;
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMS, "invalid block number");
+        }
+    }
+
+    if (val.isNum()) {
+        int blockHeight = val.get_int();
+
+        if (blockHeight < 0) {
+            return latestblock.height;
+        }
+
+        return blockHeight;
+    }
+
+    throw JSONRPCError(RPC_INVALID_PARAMS, "invalid block number");
+}
+
+int parseBlockHeight(const UniValue& val, int defaultVal) {
+    if (val.isNull()) {
+        return defaultVal;
+    } else {
+        return parseBlockHeight(val);
+    }
+}
+
+dev::h160 parseParamH160(const UniValue& val) {
+    if (!val.isStr()) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid hex 160");
+    }
+
+    auto addrStr = val.get_str();
+
+    if (addrStr.length() != 40 || !CheckHex(addrStr)) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid hex 160 string");
+    }
+    return dev::h160(addrStr);
+}
+
+void parseParam(const UniValue& val, std::vector<dev::h160> &h160s) {
+    if (val.isNull()) {
+        return;
+    }
+
+    // Treat a string as an array of length 1
+    if (val.isStr()) {
+        h160s.push_back(parseParamH160(val.get_str()));
+        return;
+    }
+
+    if (!val.isArray()) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Expect an array of hex 160 strings");
+    }
+
+    auto vals = val.getValues();
+    h160s.resize(vals.size());
+
+    std::transform(vals.begin(), vals.end(), h160s.begin(), [](UniValue val) -> dev::h160 {
+        return parseParamH160(val);
+    });
+}
+
+void parseParam(const UniValue& val, std::set<dev::h160> &h160s) {
+    std::vector<dev::h160> v;
+    parseParam(val, v);
+    h160s.insert(v.begin(), v.end());
+}
+
+void parseParam(const UniValue& val, std::vector<boost::optional<dev::h256>> &h256s) {
+    if (val.isNull()) {
+        return;
+    }
+
+    if (!val.isArray()) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Expect an array of hex 256 strings");
+    }
+
+    auto vals = val.getValues();
+    h256s.resize(vals.size());
+
+    std::transform(vals.begin(), vals.end(), h256s.begin(), [](UniValue val) -> boost::optional<dev::h256> {
+        if (val.isNull()) {
+            return boost::optional<dev::h256>();
+        }
+
+        if (!val.isStr()) {
+            throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid hex 256 string");
+        }
+
+        auto addrStr = val.get_str();
+
+        if (addrStr.length() != 64 || !CheckHex(addrStr)) {
+            throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid hex 256 string");
+        }
+
+        return boost::optional<dev::h256>(dev::h256(addrStr));
+    });
+}
+
+void assignJSON(UniValue& entry, const TransactionReceiptInfo& resExec) {
+    entry.push_back(Pair("blockHash", resExec.blockHash.GetHex()));
+    entry.push_back(Pair("blockNumber", uint64_t(resExec.blockNumber)));
+    entry.push_back(Pair("transactionHash", resExec.transactionHash.GetHex()));
+    entry.push_back(
+            Pair("transactionIndex", uint64_t(resExec.transactionIndex)));
+    entry.push_back(Pair("from", resExec.from.hex()));
+    entry.push_back(Pair("to", resExec.to.hex()));
+    entry.push_back(
+            Pair("cumulativeGasUsed", CAmount(resExec.cumulativeGasUsed)));
+    entry.push_back(Pair("gasUsed", CAmount(resExec.gasUsed)));
+    entry.push_back(Pair("contractAddress", resExec.contractAddress.hex()));
+    std::stringstream ss;
+    ss << resExec.excepted;
+    entry.push_back(Pair("excepted",ss.str()));
+}
+
+void assignJSON(UniValue& logEntry, const dev::eth::LogEntry& log,
+        bool includeAddress) {
+    if (includeAddress) {
+        logEntry.push_back(Pair("address", log.address.hex()));
+    }
+
+    UniValue topics(UniValue::VARR);
+    for (dev::h256 hash : log.topics) {
+        topics.push_back(hash.hex());
+    }
+    logEntry.push_back(Pair("topics", topics));
+    logEntry.push_back(Pair("data", HexStr(log.data)));
+}
+
+void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
+{
+    if(pindex) {
+        latestblock.hash = pindex->GetBlockHash();
+        latestblock.height = pindex->nHeight;
+    }
+}
+
+class WaitForLogsParams {
+public:
+    int fromBlock;
+    int toBlock;
+
+    int minconf;
+
+    std::set<dev::h160> addresses;
+    std::vector<boost::optional<dev::h256>> topics;
+
+    WaitForLogsParams(const UniValue& params) {
+
+        fromBlock = parseBlockHeight(params[0], latestblock.height + 1);
+        toBlock = parseBlockHeight(params[1], -1);
+
+        parseFilter(params[2]);
+        minconf = parseUInt(params[3], 6);
+    }
+
+private:
+    void parseFilter(const UniValue& val) {
+        if (val.isNull()) {
+            return;
+        }
+
+        parseParam(val["addresses"], addresses);
+        parseParam(val["topics"], topics);
+    }
+};
+
+UniValue waitforlogs(const UniValue& params, bool fHelp) {
+    // this is a long poll function. force cast to non const pointer
+
+    if (fHelp) {
+        throw std::runtime_error(
+                "waitforlogs (fromBlock) (toBlock) (filter) (minconf)\n"
+                "requires -logevents to be enabled\n"
+                "\nWaits for a new logs and return matching log entries. When the call returns, it also specifies the next block number to start waiting for new logs.\n"
+                "By calling waitforlogs repeatedly using the returned `nextBlock` number, a client can receive a stream of up-to-date log entires.\n"
+                "\nThis call is different from the similarly named `waitforlogs`. This call returns individual matching log entries, `searchlogs` returns a transaction receipt if one of the log entries of that transaction matches the filter conditions.\n"
+                "\nArguments:\n"
+                "1. fromBlock (int | \"latest\", optional, default=null) The block number to start looking for logs. ()\n"
+                "2. toBlock   (int | \"latest\", optional, default=null) The block number to stop looking for logs. If null, will wait indefinitely into the future.\n"
+                "3. filter    ({ addresses?: Hex160String[], topics?: Hex256String[] }, optional default={}) Filter conditions for logs. Addresses and topics are specified as array of hexadecimal strings\n"
+                "4. minconf   (uint, optional, default=6) Minimal number of confirmations before a log is returned\n"
+                "\nResult:\n"
+                "An object with the following properties:\n"
+                "1. logs (LogEntry[]) Array of matchiing log entries. This may be empty if `filter` removed all entries."
+                "2. count (int) How many log entries are returned."
+                "3. nextBlock (int) To wait for new log entries haven't seen before, use this number as `fromBlock`"
+                "\nUsage:\n"
+                "`waitforlogs` waits for new logs, starting from the tip of the chain.\n"
+                "`waitforlogs 600` waits for new logs, but starting from block 600. If there are logs available, this call will return immediately.\n"
+                "`waitforlogs 600 700` waits for new logs, but only up to 700th block\n"
+                "`waitforlogs null null` this is equivalent to `waitforlogs`, using default parameter values\n"
+                "`waitforlogs null null` { \"addresses\": [ \"ff0011...\" ], \"topics\": [ \"c0fefe\"] }` waits for logs in the future matching the specified conditions\n"
+                "\nSample Output:\n"
+                "{\n  \"entries\": [\n    {\n      \"blockHash\": \"56d5f1f5ec239ef9c822d9ed600fe9aa63727071770ac7c0eabfc903bf7316d4\",\n      \"blockNumber\": 3286,\n      \"transactionHash\": \"00aa0f041ce333bc3a855b2cba03c41427cda04f0334d7f6cb0acad62f338ddc\",\n      \"transactionIndex\": 2,\n      \"from\": \"3f6866e2b59121ada1ddfc8edc84a92d9655675f\",\n      \"to\": \"8e1ee0b38b719abe8fa984c986eabb5bb5071b6b\",\n      \"cumulativeGasUsed\": 23709,\n      \"gasUsed\": 23709,\n      \"contractAddress\": \"8e1ee0b38b719abe8fa984c986eabb5bb5071b6b\",\n      \"topics\": [\n        \"f0e1159fa6dc12bb31e0098b7a1270c2bd50e760522991c6f0119160028d9916\",\n        \"0000000000000000000000000000000000000000000000000000000000000002\"\n      ],\n      \"data\": \"00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003\"\n    }\n  ],\n\n  \"count\": 7,\n  \"nextblock\": 801\n}\n"
+                );
+    }
+
+    if (!fLogEvents)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Events indexing disabled");
+
+    WaitForLogsParams logparams(params);
+
+    std::vector<std::vector<uint256>> hashesToBlock;
+
+    int curheight = 0;
+
+    auto& addresses = logparams.addresses;
+    auto& filterTopics = logparams.topics;
+
+    while (curheight == 0) {
+        {
+            LOCK(cs_main);
+            curheight = 0;//pblocktree->ReadHeightIndex(logparams.fromBlock, logparams.toBlock, logparams.minconf, hashesToBlock, addresses);
+        }
+
+        // if curheight >= fromBlock. Blockchain extended with new log entries. Return next block height to client.
+        //    nextBlock = curheight + 1
+        // if curheight == 0. No log entry found in index. Wait for new block then try again.
+        //    nextBlock = fromBlock
+        // if curheight == -1. Incorrect parameters has entered.
+        //
+        // if curheight advanced, but all filtered out, API should return empty array, but advancing the cursor anyway.
+
+        if (curheight > 0) {
+            break;
+        }
+
+        if (curheight == -1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect params");
+        }
+
+        // wait for a new block to arrive
+        {
+            while (true) {
+                auto blockHeight = latestblock.height;
+
+                if (latestblock.height > blockHeight) {
+                    break;
+                }
+
+                // TODO: maybe just merge `IsRPCRunning` this into PollAlive
+                if (!IsRPCRunning()) {
+                    LogPrintf("waitforlogs client disconnected\n");
+                    return NullUniValue;
+                }
+            }
+        }
+    }
+
+    LOCK(cs_main);
+
+    UniValue jsonLogs(UniValue::VARR);
+
+    for (const auto& txHashes : hashesToBlock) {
+        for (const auto& txHash : txHashes) {
+            std::vector<TransactionReceiptInfo> receipts = pstorageresult->getResult(
+                    uintToh256(txHash));
+
+            for (const auto& receipt : receipts) {
+                for (const auto& log : receipt.logs) {
+
+                    bool includeLog = true;
+
+                    if (!filterTopics.empty()) {
+                        for (size_t i = 0; i < filterTopics.size(); i++) {
+                            auto filterTopic = filterTopics[i];
+
+                            if (!filterTopic) {
+                                continue;
+                            }
+
+                            auto filterTopicContent = filterTopic.get();
+                            auto topicContent = log.topics[i];
+
+                            if (topicContent != filterTopicContent) {
+                                includeLog = false;
+                                break;
+                            }
+                        }
+                    }
+
+
+                    if (!includeLog) {
+                        continue;
+                    }
+
+                    UniValue jsonLog(UniValue::VOBJ);
+
+                    assignJSON(jsonLog, receipt);
+                    assignJSON(jsonLog, log, false);
+
+                    jsonLogs.push_back(jsonLog);
+                }
+            }
+        }
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.push_back(Pair("entries", jsonLogs));
+    result.push_back(Pair("count", (int) jsonLogs.size()));
+    result.push_back(Pair("nextblock", curheight + 1));
+
+    return result;
 }
 
 UniValue pruneblockchain(const UniValue& params, bool fHelp)

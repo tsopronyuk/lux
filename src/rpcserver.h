@@ -19,6 +19,14 @@
 
 #include "univalue/univalue.h"
 
+struct CUpdatedBlock
+{
+    uint256 hash;
+    int height;
+};
+
+static CUpdatedBlock latestblock;
+
 class CRPCCommand;
 
 namespace RPCServer
@@ -350,7 +358,7 @@ extern UniValue getaccountinfo(const UniValue& params, bool fHelp);
 //extern UniValue mnfinalbudget(const UniValue& params, bool fHelp);
 //extern UniValue mnsync(const UniValue& params, bool fHelp);
 
-
+extern UniValue waitforlogs(const UniValue& params, bool fHelp);
 extern UniValue getstorage(const UniValue& params, bool fHelp);
 extern UniValue listcontracts(const UniValue& params, bool fHelp);
 extern UniValue pruneblockchain(const UniValue& params, bool fHelp);

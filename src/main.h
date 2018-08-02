@@ -372,12 +372,12 @@ struct CHeightTxIndexIteratorKey {
         return 4;
     }
     template<typename Stream>
-    void Serialize(Stream& s) const {
-        ser_writedata32be(s, height);
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        s << height;
     }
     template<typename Stream>
-    void Unserialize(Stream& s) {
-        height = ser_readdata32be(s);
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        s >> height;
     }
 
     CHeightTxIndexIteratorKey(unsigned int _height) {
@@ -401,13 +401,13 @@ struct CHeightTxIndexKey {
         return 24;
     }
     template<typename Stream>
-    void Serialize(Stream& s) const {
-        ser_writedata32be(s, height);
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        s << height;
         s << address.asBytes();
     }
     template<typename Stream>
-    void Unserialize(Stream& s) {
-        height = ser_readdata32be(s);
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        s >> height;
         valtype tmp;
         s >> tmp;
         address = dev::h160(tmp);

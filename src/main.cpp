@@ -3422,7 +3422,7 @@ bool ActivateBestChain(CValidationState& state, const CChainParams& chainparams,
                         pnode->PushInventory(CInv(MSG_BLOCK, hashNewTip));
             }
             // Notify external listeners about the new tip.
-            uiInterface.NotifyBlockTip(hashNewTip);
+            uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip);
         }
     } while (pindexMostWork != chainActive.Tip());
 
@@ -3468,6 +3468,7 @@ bool InvalidateBlock(CValidationState& state, const CChainParams& chainparams, C
     }
 
     InvalidChainFound(pindex);
+    uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
     return true;
 }
 

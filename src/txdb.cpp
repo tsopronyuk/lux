@@ -320,3 +320,73 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
 
     return true;
 }
+
+int CBlockTreeDB::ReadHeightIndex(int low, int high, int minconf,
+        std::vector<std::vector<uint256>> &blocksOfHashes,
+        std::set<dev::h160> const &addresses) {
+
+    if ((high < low && high > -1) || (high == 0 && low == 0) || (high < -1 || low < 0)) {
+       return -1;
+    }
+
+    boost::scoped_ptr<leveldb::Iterator> pcursor(NewIterator());
+
+    CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
+    ssKeySet << make_pair('h', CHeightTxIndexIteratorKey(low));
+    pcursor->Seek(ssKeySet.str());
+
+    int curheight = 0;
+
+    for (size_t count = 0; pcursor->Valid(); pcursor->Next()) {
+        try {
+            leveldb::Slice slKey = pcursor->key();
+            CDataStream ssKey(slKey.data(), slKey.data() + slKey.size(), SER_DISK, CLIENT_VERSION);
+            char chType;
+            ssKey >> chType;
+            if (chType != 'h') {
+                break;
+            }
+
+            CHeightTxIndexKey heightindex;
+            ssKey >> heightindex;
+
+
+            int nextHeight = heightindex.height;
+
+            if (high > -1 && nextHeight > high) {
+                break;
+            }
+
+            if (minconf > 0) {
+                int conf = chainActive.Height() - nextHeight;
+                if (conf < minconf) {
+                    break;
+                }
+            }
+
+            curheight = nextHeight;
+
+            auto address = heightindex.address;
+            if (!addresses.empty() && addresses.find(address) == addresses.end()) {
+                continue;
+            }
+
+            std::vector<uint256> hashesTx;
+            try {
+                leveldb::Slice slValue = pcursor->value();
+                CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
+                ssValue >> hashesTx;
+            } catch (std::exception& e) {
+                break;
+            }
+
+            count += hashesTx.size();
+
+            blocksOfHashes.push_back(hashesTx);
+        } catch (std::exception& e) {
+            break;
+        }
+    }
+
+    return curheight;
+}
