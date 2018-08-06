@@ -88,6 +88,8 @@ bool fRecordLogOpcodes = false;
 bool fIsVMlogFile = false;
 bool fGettingValuesDGP = false;
 
+std::string SCVersion ("/Luxcore:5.2.1/");
+
 
 /** The maximum allowed size for a serialized block, in bytes (only for buffer size limits) */
 unsigned int dgpMaxBlockSerSize = 8000000;
@@ -3970,6 +3972,11 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check transactions
     unsigned int nTx = 0;
     BOOST_FOREACH (const CTransaction& tx, block.vtx) {
+        //TODO add exceptions for already accepted PoS-contract blocks
+        if (block.IsProofOfStake() &&  chainActive.Height() + 1 != 350039 && (tx.HasOpSpend() || tx.HasCreateOrCall())) {
+            return error("%s: smart contracts are not supported yet in PoS blocks", __func__);
+        }
+
         if (!CheckTransaction(tx, state)) {
             LogPrint("debug", "%s: invalid transaction %s", __func__, tx.ToString());
             return error("%s: CheckTransaction failed (nTx=%d, reason: %s)", __func__, nTx, state.GetRejectReason());
@@ -4393,6 +4400,10 @@ bool ProcessNewBlock(CValidationState& state, const CChainParams& chainparams, C
 {
     int nHeight = chainActive.Height() + 1;
     bool usePhi2 = false;
+
+    // Reject the block from older version
+    if (pfrom && pfrom->strSubVer.compare(SCVersion) < 0)
+        return error("%s: Invalid block %d, wrong chain ver %s", __func__, nHeight, pfrom->strSubVer.c_str());
 
     // Preliminary checks
     if (!CheckBlock(*pblock, state, chainparams.GetConsensus()))
@@ -5765,8 +5776,9 @@ static bool ProcessMessage(CNode* pfrom, const string &strCommand, CDataStream& 
             vRecv >> LIMITED_STRING(pfrom->strSubVer, 256);
             pfrom->cleanSubVer = SanitizeString(pfrom->strSubVer);
         }
+
         //disconnect nodes, which are not upgraded, but the current best block is after hardfork
-        if (GetMajorVersionFromVersion(pfrom->cleanSubVer) < CLIENT_VERSION_MAJOR && chainActive.Height() >= chainparams.SwitchPhi2Block()) {
+        if (pfrom->strSubVer.compare(SCVersion) < 0 || (GetMajorVersionFromVersion(pfrom->cleanSubVer) < CLIENT_VERSION_MAJOR && chainActive.Height() >= chainparams.SwitchPhi2Block())) {
             pfrom->PushMessage("reject", strCommand, REJECT_OBSOLETE);
             pfrom->fDisconnect = true;
             return false;
@@ -7030,9 +7042,22 @@ bool CheckRefund(const CBlock& block, const std::vector<CTxOut>& vouts){
     std::vector<CTxOut>::iterator it;
     for(size_t i = 0; i < vouts.size(); i++){
         it=std::find(vTempVouts.begin(), vTempVouts.end(), vouts[i]);
-        if(it==vTempVouts.end()){
-            return false;
-        }else{
+        if (it==vTempVouts.end()) {
+            bool refundValid=false;
+            const int nPrecision = 1000000;
+            LogPrintf("%s: warning, unable to find exact %s\n", __func__, vouts[i].ToString().c_str());
+            for(it=vTempVouts.begin(); it!=vTempVouts.end(); it++) {
+                if (vouts[i].scriptPubKey == it->scriptPubKey && it->nValue/nPrecision == vouts[i].nValue/nPrecision) {
+                    LogPrintf("%s: found vout %s (%s)\n", __func__, it->ToString().c_str(), FormatMoney(it->nValue));
+                    refundValid = true;
+                }
+            }
+            if (!refundValid) {
+                LogPrintf("%s: Unable to find vout %s\n", __func__, vouts[i].ToString().c_str());
+                LogPrintf("%s: first block %s\n", __func__, vTempVouts.at(0).ToString().c_str());
+                return false;
+            }
+        } else {
             vTempVouts.erase(it);
         }
     }
