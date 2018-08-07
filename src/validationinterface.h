@@ -82,9 +82,6 @@ protected:
      * Called on a background thread.
      */
     virtual void TransactionRemovedFromMempool(const CTransactionRef &ptx) {}
-
-    virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
-
     /**
      * Notifies listeners of a block being connected.
      * Provides a vector of transactions evicted from the mempool as a result.
@@ -104,11 +101,6 @@ protected:
      * Called on a background thread.
      */
     virtual void SetBestChain(const CBlockLocator &locator) {}
-
-    virtual bool UpdatedTransaction(const uint256 &hash) { return false; }
-
-    virtual void Inventory(const uint256 &hash) {}
-
     /** Tells listeners to broadcast their data. */
     virtual void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) {}
     /**
@@ -118,11 +110,10 @@ protected:
      * callback was generated (not necessarily now)
      */
     virtual void BlockChecked(const CBlock&, const CValidationState&) {}
-
-    virtual void GetScriptForMining(boost::shared_ptr <CReserveScript> &) {};
-
-    virtual void ResetRequestCount(const uint256 &hash) {};
-
+    /**
+     * Notifies listeners that a block which builds directly on our current tip
+     * has been received and connected to the headers tree, though not validated yet */
+    virtual void NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock>& block) {};
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();
@@ -156,17 +147,13 @@ public:
     void UnregisterWithMempoolSignals(CTxMemPool& pool);
 
     void UpdatedBlockTip(const CBlockIndex *, const CBlockIndex *, bool fInitialDownload);
-    void SyncTransaction(const CTransaction &, const CBlock *);
     void TransactionAddedToMempool(const CTransactionRef &);
     void BlockConnected(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::shared_ptr<const std::vector<CTransactionRef>> &);
     void BlockDisconnected(const std::shared_ptr<const CBlock> &);
     void SetBestChain(const CBlockLocator &);
     void Broadcast(int64_t nBestBlockTime, CConnman* connman);
     void BlockChecked(const CBlock&, const CValidationState&);
-    bool UpdatedTransaction(const uint256 &);
-    void Inventory(const uint256 &);
-    void ScriptForMining(boost::shared_ptr<CReserveScript> &);
-    void BlockFound(const uint256 &);
+    void NewValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);
 };
 
 CMainSignals& GetMainSignals();

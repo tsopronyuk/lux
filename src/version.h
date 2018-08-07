@@ -11,6 +11,7 @@
  * network protocol versioning
  */
 
+//69XXX is the last version to support alerts
 static const int PROTOCOL_VERSION = 69500;
 
 //! initial proto version, to be increased after version/verack negotiation

@@ -77,7 +77,6 @@ class CValidationInterface;
 class CValidationState;
 
 struct CBlockTemplate;
-struct CNodeStateStats;
 
 #define START_MASTERNODE_PAYMENTS_TESTNET 1529152909 /* 16 June 2018 (block 1500) */
 #define START_MASTERNODE_PAYMENTS 1432907775
@@ -104,12 +103,6 @@ static const bool DEFAULT_WHITELISTALWAYSRELAY = true;
 static const unsigned int MAX_STANDARD_TX_SIZE = MAX_BLOCK_SIZE_GEN/5;
 /** The maximum allowed number of signature check operations in a block (network rule) */
 static const unsigned int MAX_BLOCK_SIGOPS = MAX_BLOCK_BASE_SIZE / 50;
-/** Default for -maxorphantx, maximum number of orphan transactions kept in memory */
-static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = MAX_BLOCK_BASE_SIZE/100;
-/** Expiration time for orphan transactions in seconds */
-static const int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
-/** Minimum time between orphan transactions expire time checks in seconds */
-static const int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** The maximum size of a blk?????.dat file (since 0.8) */
 static const unsigned int MAX_BLOCKFILE_SIZE = 0x8000000; // 128 MiB
 /** The pre-allocation chunk size for blk?????.dat files (since 0.8) */
@@ -345,10 +338,6 @@ void UnlinkPrunedFiles(std::set<int>& setFilesToPrune);
 CBlockIndex* InsertBlockIndex(uint256 hash);
 /** Abort with a message */
 bool AbortNode(const std::string& msg, const std::string& userMessage = "");
-/** Get statistics from node state */
-bool GetNodeStateStats(NodeId nodeid, CNodeStateStats& stats);
-/** Increase a node's misbehavior score. */
-void Misbehaving(NodeId nodeid, int howmuch);
 /** This function is called from the RPC code for pruneblockchain */
 void PruneBlockFilesManual(int nManualPruneHeight);
 /** Flush all state, indexes and buffers to disk. */
@@ -426,19 +415,10 @@ struct CHeightTxIndexKey {
     }
 };
 
-////////////////////////////////////////////////////////////
-
 int GetInputAge(CTxIn& vin);
 int GetInputAgeIX(uint256 nTXHash, CTxIn& vin);
 bool GetCoinAge(const CTransaction& tx, unsigned int nTxTime, uint64_t& nCoinAge);
 int GetIXConfirmations(uint256 nTXHash);
-
-struct CNodeStateStats {
-    int nMisbehavior;
-    int nSyncHeight;
-    int nCommonHeight;
-    std::vector<int> vHeightInFlight;
-};
 
 struct CDiskTxPos : public CDiskBlockPos {
     unsigned int nTxOffset; // after header
