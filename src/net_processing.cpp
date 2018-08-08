@@ -3692,143 +3692,83 @@ public:
 } instance_of_cnetprocessingcleanup;
 
 
-void RelayTransactionLockReq(const CTransaction& tx, bool relayToAll)
+void RelayTransactionLockReq(CConnman* connman, const CTransaction& tx, bool relayToAll)
 {
-    CInv inv(MSG_TXLOCK_REQUEST, tx.GetHash());
-
-    //broadcast the new node
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&tx, &relayToAll](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        if (!relayToAll && !pnode->fRelayTxes)
-            continue;
-
-        pnode->PushMessage("ix", tx);
-    }
+        if (relayToAll || pnode->fRelayTxes) {
+            pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make("ix", tx));
+        }
+    });
 }
 
-void RelayInv(CInv& inv)
+void RelayDarkSendFinalTransaction(CConnman* connman, const int sessionID, const CTransaction& txNew)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&sessionID, &txNew](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        if (pnode->nVersion >= ActiveProtocol())
-            pnode->PushInventory(inv);
-    }
+        pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make("dsf", sessionID, txNew));
+    });
 }
 
-void RelayDarkSendFinalTransaction(const int sessionID, const CTransaction& txNew)
+void RelayDarkSendIn(CConnman* connman, const std::vector<CTxIn>& in, const int64_t& nAmount, const CTransaction& txCollateral, const std::vector<CTxOut>& out)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&darkSendPool, &in, &nAmount, &txCollateral, &out](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        pnode->PushMessage("dsf", sessionID, txNew);
-    }
+        if ((CNetAddr)darkSendPool.submittedToMasternode == (CNetAddr)pnode->addr) {
+            LogPrintf("RelayDarkSendIn - found master, relaying message - %s \n", pnode->addr.ToString());
+            connman->PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make("dsi", in, nAmount, txCollateral, out));
+        }
+    });
 }
 
-void RelayDarkSendIn(const std::vector<CTxIn>& in, const int64_t& nAmount, const CTransaction& txCollateral, const std::vector<CTxOut>& out)
+void RelayDarkSendStatus(CConnman* connman, const int sessionID, const int newState, const int newEntriesCount, const int newAccepted, const std::string error)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&sessionID, &newState, &newEntriesCount, &newAccepted, &error](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        if((CNetAddr)darkSendPool.submittedToMasternode != (CNetAddr)pnode->addr) continue;
-        LogPrintf("RelayDarkSendIn - found master, relaying message - %s \n", pnode->addr.ToString().c_str());
-        pnode->PushMessage("dsi", in, nAmount, txCollateral, out);
-    }
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dssu", sessionID, newState, newEntriesCount, newAccepted, error));
+    });
 }
 
-void RelayDarkSendStatus(const int sessionID, const int newState, const int newEntriesCount, const int newAccepted, const std::string error)
+void RelayDarkSendElectionEntry(CConnman* connman, const CTxIn &vin, const CService addr, const std::vector<unsigned char> vchSig, const int64_t nNow, const CPubKey pubkey, const CPubKey pubkey2, const int count, const int current, const int64_t lastUpdated, const int protocolVersion)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        pnode->PushMessage("dssu", sessionID, newState, newEntriesCount, newAccepted, error);
-    }
+        if (pnode->fRelayTxes)
+            connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion())
+                                        .Make("dsee", in, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion));
+    });
 }
 
-void RelayDarkSendElectionEntry(const CTxIn &vin, const CService addr, const std::vector<unsigned char> vchSig, const int64_t nNow, const CPubKey pubkey, const CPubKey pubkey2, const int count, const int current, const int64_t lastUpdated, const int protocolVersion)
+void SendDarkSendElectionEntry(CConnman* connman, const CTxIn &vin, const CService addr, const std::vector<unsigned char> vchSig, const int64_t nNow, const CPubKey pubkey, const CPubKey pubkey2, const int count, const int current, const int64_t lastUpdated, const int protocolVersion)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        if(!pnode->fRelayTxes) continue;
-        pnode->PushMessage("dsee", vin, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion);
-    }
+        connman->PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion())
+                                    .Make("dsee", vin, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion))
+    });
 }
 
-void SendDarkSendElectionEntry(const CTxIn &vin, const CService addr, const std::vector<unsigned char> vchSig, const int64_t nNow, const CPubKey pubkey, const CPubKey pubkey2, const int count, const int current, const int64_t lastUpdated, const int protocolVersion)
+void RelayDarkSendElectionEntryPing(CConnman* connman, const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&vin, &vchSig, &nNow, &stop](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for(CNode* pnode : vNodesCopy) {
-        pnode->PushMessage("dsee", vin, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion);
-    }
+        if (pnode->fRelayTxes)
+            connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dseep", vin, vchSig, nNow, stop));
+    });
 }
 
-void RelayDarkSendElectionEntryPing(const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop)
+void SendDarkSendElectionEntryPing(CConnman* connman, const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&vin, &vchSig, &nNow, &stop](CNode* pnode)
     {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        if(!pnode->fRelayTxes) continue;
-        pnode->PushMessage("dseep", vin, vchSig, nNow, stop);
-    }
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dseep", vin, vchSig, nNow, stop));
+    });
 }
 
-void SendDarkSendElectionEntryPing(const CTxIn &vin, const std::vector<unsigned char> vchSig, const int64_t nNow, const bool stop)
+void RelayDarkSendCompletedTransaction(CConnman* connman, const int sessionID, const bool error, const std::string errorMessage)
 {
-    std::vector<CNode*> vNodesCopy;
+    connman->ForEachNode([&sessionID, &error, &errorMessage](CNode* pnode)
     {
-        // LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        pnode->PushMessage("dseep", vin, vchSig, nNow, stop);
-    }
-}
-
-void RelayDarkSendCompletedTransaction(const int sessionID, const bool error, const std::string errorMessage)
-{
-    std::vector<CNode*> vNodesCopy;
-    {
-        //LOCK(cs_vNodes);
-        vNodesCopy = vNodes;
-    }
-
-    for (CNode* pnode : vNodesCopy) {
-        pnode->PushMessage("dsc", sessionID, error, errorMessage);
-    }
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dsc", sessionID, error, errorMessage));
+    });
 }
