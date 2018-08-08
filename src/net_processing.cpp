@@ -1234,25 +1234,25 @@ void static ProcessGetData(CNode* pfrom, const Consensus::Params& consensusParam
         if (inv.type == MSG_TXLOCK_VOTE) {
             it++;
             if (mapTxLockVote.count(inv.hash)) {
-                connman->PushMessage(pfrom, msgMaker.Make("txlvote", mapTxLockVote[inv.hash]));
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::TXLOCKVOTE, mapTxLockVote[inv.hash]));
             }
         }
         if (inv.type == MSG_TXLOCK_REQUEST) {
             it++;
             if (mapTxLockReq.count(inv.hash)) {
-                connman->PushMessage(pfrom, msgMaker.Make("ix", mapTxLockReq[inv.hash]));
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INSTANTX, mapTxLockReq[inv.hash]));
             }
         }
         if (inv.type == MSG_SPORK) {
             it++;
             if (mapSporks.count(inv.hash)) {
-                connman->PushMessage(pfrom, msgMaker.Make("spork", mmapSporks[inv.hash]));
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::SPORK, mmapSporks[inv.hash]));
             }
         }
         if (inv.type == MSG_MASTERNODE_WINNER) {
             it++;
             if (mapSeenMasternodeVotes.count(inv.hash)) {
-                connman->PushMessage(pfrom, msgMaker.Make("mnw", mapSeenMasternodeVotes[inv.hash], 0));
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::MNDECLWINNER, mapSeenMasternodeVotes[inv.hash], 0));
             }
         }
     }
@@ -1718,7 +1718,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // If the peer is old enough to have the old alert system, send it the final alert.
         if (pfrom->nVersion < 70000) {
             CDataStream finalAlert(ParseHex("60010000000000000000000000ffffff7f00000000ffffff7ffeffff7f01ffffff7f00000000ffffff7f00ffffff7f002f555247454e543a20416c657274206b657920636f6d70726f6d697365642c2075706772616465207265717569726564004630440220653febd6410f470f6bae11cad19c48413becb1ac2c17f908fd0fd53bdc3abd5202206d0e9c96fe88d4a0f01ed9dedae2b6f9e00da94cad0fecaae66ecf689bf71b50"), SER_NETWORK, PROTOCOL_VERSION);
-            connman->PushMessage(pfrom, CNetMsgMaker(nSendVersion).Make("alert", finalAlert));
+            connman->PushMessage(pfrom, CNetMsgMaker(nSendVersion).Make(NetMsgType::ALERT, finalAlert));
         }
 
         // Feeler connections exist only to verify if address is online.
@@ -3697,7 +3697,7 @@ void RelayTransactionLockReq(CConnman* connman, const CTransaction& tx, bool rel
     connman->ForEachNode([&tx, &relayToAll](CNode* pnode)
     {
         if (relayToAll || pnode->fRelayTxes) {
-            pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make("ix", tx));
+            pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make(NetMsgType::INSTANTX, tx));
         }
     });
 }
@@ -3706,7 +3706,7 @@ void RelayDarkSendFinalTransaction(CConnman* connman, const int sessionID, const
 {
     connman->ForEachNode([&sessionID, &txNew](CNode* pnode)
     {
-        pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make("dsf", sessionID, txNew));
+        pnode->PushMessage(pnode, CNetMsgMaker(pfrom->GetSendVersion()).Make(NetMsgType::DSFINTX, sessionID, txNew));
     });
 }
 
@@ -3716,7 +3716,7 @@ void RelayDarkSendIn(CConnman* connman, const std::vector<CTxIn>& in, const int6
     {
         if ((CNetAddr)darkSendPool.submittedToMasternode == (CNetAddr)pnode->addr) {
             LogPrintf("RelayDarkSendIn - found master, relaying message - %s \n", pnode->addr.ToString());
-            connman->PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make("dsi", in, nAmount, txCollateral, out));
+            connman->PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make(NetMsgType::DSVIN, in, nAmount, txCollateral, out));
         }
     });
 }
@@ -3725,7 +3725,7 @@ void RelayDarkSendStatus(CConnman* connman, const int sessionID, const int newSt
 {
     connman->ForEachNode([&sessionID, &newState, &newEntriesCount, &newAccepted, &error](CNode* pnode)
     {
-        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dssu", sessionID, newState, newEntriesCount, newAccepted, error));
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make(NetMsgType::DSSTATUSUPDATE, sessionID, newState, newEntriesCount, newAccepted, error));
     });
 }
 
@@ -3735,7 +3735,7 @@ void RelayDarkSendElectionEntry(CConnman* connman, const CTxIn &vin, const CServ
     {
         if (pnode->fRelayTxes)
             connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion())
-                                        .Make("dsee", in, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion));
+                                        .Make(NetMsgType::DSELECTIONENTRY, in, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion));
     });
 }
 
@@ -3744,7 +3744,7 @@ void SendDarkSendElectionEntry(CConnman* connman, const CTxIn &vin, const CServi
     connman->ForEachNode([&](CNode* pnode)
     {
         connman->PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion())
-                                    .Make("dsee", vin, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion))
+                                    .Make(NetMsgType::DSELECTIONENTRY, vin, addr, vchSig, nNow, pubkey, pubkey2, count, current, lastUpdated, protocolVersion))
     });
 }
 
@@ -3753,7 +3753,7 @@ void RelayDarkSendElectionEntryPing(CConnman* connman, const CTxIn &vin, const s
     connman->ForEachNode([&vin, &vchSig, &nNow, &stop](CNode* pnode)
     {
         if (pnode->fRelayTxes)
-            connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dseep", vin, vchSig, nNow, stop));
+            connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make(NetMsgType::DSELECTIONENTRYPING, vin, vchSig, nNow, stop));
     });
 }
 
@@ -3761,7 +3761,7 @@ void SendDarkSendElectionEntryPing(CConnman* connman, const CTxIn &vin, const st
 {
     connman->ForEachNode([&vin, &vchSig, &nNow, &stop](CNode* pnode)
     {
-        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dseep", vin, vchSig, nNow, stop));
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make(NetMsgType::DSELECTIONENTRYPING, vin, vchSig, nNow, stop));
     });
 }
 
@@ -3769,6 +3769,6 @@ void RelayDarkSendCompletedTransaction(CConnman* connman, const int sessionID, c
 {
     connman->ForEachNode([&sessionID, &error, &errorMessage](CNode* pnode)
     {
-        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make("dsc", sessionID, error, errorMessage));
+        connman->PushMessage(pnode, CNetMsgMake(pnode->GetSendVersion()).Make(NetMsgType::DSCOMPLETE, sessionID, error, errorMessage));
     });
 }
