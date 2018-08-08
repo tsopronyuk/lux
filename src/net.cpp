@@ -1,28 +1,28 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2014 The Bitcoin developers
+// Copyright (c) 2009-2017 The Bitcoin Core developers
 // Copyright (c) 2014-2015 The Dash developers
 // Copyright (c) 2015-2017 The LUX developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #if defined(HAVE_CONFIG_H)
-#include "config/lux-config.h"
+#include <config/lux-config.h>
 #endif
 
-#include "net.h"
+#include <net.h>
 
-#include "addrman.h"
-#include "chainparams.h"
-#include "clientversion.h"
-#include "miner.h"
-#include "darksend.h"
-#include "primitives/transaction.h"
-#include "scheduler.h"
-#include "ui_interface.h"
-#include "wallet.h"
-#include "miner.h"
-#include "stake.h"
+#include <chainparams.h>
+#include <clientversion.h>
+#include <consensus/consensus.h>
+#include <crypto/common.h>
+#include <crypto/sha256.h>
+#include <primitives/transaction.h>
+#include <netbase.h>
+#include <scheduler.h>
+#include <ui_interface.h>
+#include <utilstrencodings.h>
 
+#include <memory>
 #ifdef WIN32
 #include <string.h>
 #else
@@ -36,14 +36,22 @@
 #include <miniupnpc/upnperrors.h>
 #endif
 
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
 
-// Dump addresses to peers.dat every 15 minutes (900s)
+#include <math.h>
+
+// Dump addresses to peers.dat and banlist.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
 
-#if !defined(HAVE_MSG_NOSIGNAL) && !defined(MSG_NOSIGNAL)
+// We add a random period time (0 to 1 seconds) to feeler connections to prevent synchronization.
+#define FEELER_SLEEP_WINDOW 1
+
+#if !defined(HAVE_MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
+#endif
+
+// MSG_DONTWAIT is not available on some platforms, if it doesn't exist define it as 0
+#if !defined(HAVE_MSG_DONTWAIT)
+#define MSG_DONTWAIT 0
 #endif
 
 // Fix for ancient MinGW versions, that don't have defined these in ws2tcpip.h.
