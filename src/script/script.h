@@ -182,6 +182,7 @@ enum opcodetype
     OP_CREATE = 0xc1,
     OP_CALL = 0xc2,
     OP_SPEND = 0xc3,
+    OP_COLDSTAKE = 0xc4,
 
     // template matching params
     OP_GAS_PRICE = 0xf5,
@@ -726,6 +727,9 @@ public:
         CScriptBase::clear();
         shrink_to_fit();
     }
+
+    bool IsColdStake() const;
+
 };
 
 struct CScriptWitness

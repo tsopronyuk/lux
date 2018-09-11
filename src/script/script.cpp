@@ -155,6 +155,8 @@ const char* GetOpName(opcodetype opcode)
     case OP_CALL                   : return "OP_CALL";
     case OP_SPEND                 : return "OP_SPEND";
 
+    case OP_COLDSTAKE              : return "OP_COLDSTAKE";
+
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
     // Note:
@@ -368,4 +370,21 @@ bool CScript::HasValidOps() const
         }
     }
     return true;
+}
+
+bool CScript::IsColdStake() const {
+    return (this->size() == 1+1+25+1+25+1 &&
+            (*this)[1] == OP_IF &&
+            (*this)[0] == OP_DUP &&
+            (*this)[3] == OP_HASH160 &&
+            (*this)[4] == 0x14 &&
+            (*this)[25] == OP_EQUALVERIFY &&
+            (*this)[26] == OP_CHECKSIG &&
+            (*this)[27] == OP_ELSE &&
+            (*this)[28] == OP_DUP &&
+            (*this)[29] == OP_HASH160 &&
+            (*this)[30] == 0x14 &&
+            (*this)[51] == OP_EQUALVERIFY &&
+            (*this)[52] == OP_CHECKSIG &&
+            (*this)[53] == OP_ENDIF);
 }

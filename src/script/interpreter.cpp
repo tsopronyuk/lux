@@ -1046,6 +1046,11 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     return true; // temp
                 }
                 break;
+                case OP_COLDSTAKE:
+                {
+                    stack.push_back(checker.IsColdStake() ? vchTrue : vchFalse);
+                }
+                    break;
                 ////////////////////////////////////////////////////////
 
                 default:

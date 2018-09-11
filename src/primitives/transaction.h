@@ -368,6 +368,7 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
         }
     }
     READWRITE(*const_cast<uint32_t*>(&tx.nLockTime));
+    if(tx.nVersion >= 2) { READWRITE(tx.strEncrypted); }
 }
 
 /** The basic transaction that is broadcasted on the network and contained in
@@ -388,6 +389,9 @@ public:
     // MAX_STANDARD_VERSION will be equal.
     static const int32_t MAX_STANDARD_VERSION=2;
 
+    // Coldstake
+    static const int32_t TX_COLDSTAKE_VERSION=3;
+
     CTxWitness wit; // Not const: can change without invalidating the txid cache
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -399,6 +403,8 @@ public:
     const int32_t nVersion;
     const uint32_t nTime;
     const uint32_t nLockTime;
+
+    std::string strEncrypted;
 
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
@@ -504,6 +510,8 @@ struct CMutableTransaction
     int32_t nVersion;
     uint32_t nTime;
     uint32_t nLockTime;
+
+    std::string strEncrypted;
 
     CMutableTransaction();
     CMutableTransaction(const CTransaction& tx);

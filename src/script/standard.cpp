@@ -42,6 +42,9 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
+    case TX_COLDSTAKE: return "coldstake";
+
+
     }
     return nullptr;
 }
@@ -88,6 +91,16 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         typeRet = TX_SCRIPTHASH;
         vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
         vSolutionsRet.push_back(hashBytes);
+        return true;
+    }
+
+    if (scriptPubKey.IsColdStake())
+    {
+        typeRet = TX_COLDSTAKE;
+        vector<unsigned char> stakingPubKey(scriptPubKey.begin()+4, scriptPubKey.begin()+24);
+        vSolutionsRet.push_back(stakingPubKey);
+        vector<unsigned char> spendingPubKey(scriptPubKey.begin()+30, scriptPubKey.begin()+50);
+        vSolutionsRet.push_back(spendingPubKey);
         return true;
     }
 

@@ -207,10 +207,25 @@ public:
         UniValue obj(UniValue::VOBJ);
         CPubKey vchPubKey;
         obj.push_back(Pair("isscript", false));
+        obj.push_back(Pair("iscoldstake", false));
         obj.push_back(Pair("iswitness", false));
         if (pwalletMain && pwalletMain->GetPubKey(keyID, vchPubKey)) {
             obj.push_back(Pair("pubkey", HexStr(vchPubKey)));
             obj.push_back(Pair("iscompressed", vchPubKey.IsCompressed()));
+        }
+        return obj;
+    }
+
+     UniValue operator()(const pair<CKeyID, CKeyID> &keyID) const {
+        UniValue obj(UniValue::VOBJ);
+        CPubKey vchPubKey;
+        obj.push_back(Pair("isscript", false));
+        obj.push_back(Pair("iscoldstake", true));
+        if (pwalletMain && pwalletMain->GetPubKey(keyID.first, vchPubKey)) {
+            obj.push_back(Pair("stakepubkey", HexStr(vchPubKey)));
+            if(pwalletMain->GetPubKey(keyID.second, vchPubKey)) {
+                obj.push_back(Pair("spendingpubkey", HexStr(vchPubKey)));
+            }
         }
         return obj;
     }
@@ -220,6 +235,21 @@ public:
         UniValue obj(UniValue::VOBJ);
         CScript subscript;
         obj.push_back(Pair("isscript", true));
+        obj.push_back(Pair("iscoldstake", false));
+
+        if (pwalletMain && pwalletMain->GetCScript(scriptID, subscript)) {
+            std::vector<CTxDestination> addresses;
+            txnouttype whichType;
+            int nRequired;
+            ExtractDestinations(subscript, whichType, addresses, nRequired);
+            obj.push_back(Pair("script", GetTxnOutputType(whichType)));
+            obj.push_back(Pair("hex", HexStr(subscript.begin(), subscript.end())));
+            UniValue a(UniValue::VARR);
+          for (const CTxDestination& addr : addresses)
+              a.push_back(EncodeDestination(addr));
+            obj.push_back(Pair("addresses", a));
+        }
+
         obj.push_back(Pair("iswitness", false));
         if (pwalletMain && pwalletMain->GetCScript(scriptID, subscript)) {
             ProcessSubScript(subscript, obj, true);

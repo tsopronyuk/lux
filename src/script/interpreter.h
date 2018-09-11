@@ -156,6 +156,11 @@ public:
          return false;
     }
 
+    virtual bool IsColdStake() const
+    {
+        return false;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -176,6 +181,9 @@ public:
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
     bool CheckSequence(const CScriptNum& nSequence) const override;
+
+    bool IsColdStake() const override { return txTo->nVersion >= CTransaction::TX_COLDSTAKE_VERSION && txTo->IsCoinStake(); }
+
 };
 
 class MutableTransactionSignatureChecker : public TransactionSignatureChecker
