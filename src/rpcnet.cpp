@@ -520,3 +520,41 @@ UniValue clearbanned(const UniValue& params, bool fHelp)
 
     return NullUniValue;
 }
+
+UniValue addencryptednodes(const UniValue& params, bool fHelp)
+{
+    string strCommand;
+    if (params.size() == 2)
+        strCommand = params[1].get_str();
+    if (fHelp || params.size() != 2 ||
+        (strCommand != "add" && strCommand != "remove"))
+        throw runtime_error(
+                "encryptednode \"node\" \"add|remove\"\n"
+                "\nAdd/remove encrypted node.\n"
+                "\nArguments:\n"
+                "1. \"node\"     (string, required) 'encrypted-node-ip-address' use getpeerinfo to find available encrypted-node\n"
+                "2. \"command\"  (string, required) 'Add' encrypted node, 'remove' encrypted node\n"
+                "\nExamples:\n"
+                + HelpExampleCli("encryptednode", "\"192.168.0.2:3000\" \"add\"")
+                + HelpExampleRpc("encryptednode", "\"192.168.0.2:3000\", \"remove\"")
+        );
+
+    string strNode = params[0].get_str();
+
+    vector<string>::iterator it = vAddedEncryptedNodes.begin();
+    for(; it != vAddedEncryptedNodes.end(); it++)
+        if (strNode == *it)
+            break;
+
+    if (strCommand == "add") {
+        if (it != vAddedEncryptedNodes.end())
+            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: encrypted node already added");
+        vAddedEncryptedNodes.push_back(strNode);
+    } else if(strCommand == "remove") {
+        if (it == vAddedEncryptedNodes.end())
+            throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: encrypted node has not been added.");
+        vAddedEncryptedNodes.erase(it);
+    }
+
+    return NullUniValue;
+}

@@ -151,6 +151,9 @@ extern limitedmap<CInv, int64_t> mapAlreadyAskedFor;
 extern std::vector<std::string> vAddedNodes;
 extern CCriticalSection cs_vAddedNodes;
 
+extern std::vector<std::string> vAddedEncryptedNodes;
+extern CCriticalSection cs_vAddedEncryptedNodes;
+
 extern NodeId nLastNodeId;
 extern CCriticalSection cs_nLastNodeId;
 

@@ -24,6 +24,19 @@
 #include "ui_interface.h"
 #include "utilmoneystr.h"
 #include "script/interpreter.h"
+#include "rpcserver.h"
+
+//#include "cpp-ipfs-api/src/http/transport-curl.cc"
+#include <stdexcept>
+#include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <curl/curl.h>
+
+#include <stdio.h>
+#include <iterator>
+#include <openssl/aes.h>
+
 
 #include <assert.h>
 
@@ -4427,4 +4440,81 @@ bool CWallet::RemoveTokenEntry(const uint256 &tokenHash, bool fFlushOnClose)
     LogPrintf("RemoveTokenEntry %s\n", tokenHash.ToString());
 
     return true;
+}
+
+vector<encryptedNode> EncryptedNode::GetEncryptedNodes() {
+
+    vector<encryptedNode> returnServers;
+
+    if (vAddedEncryptedNodes.size() < 1 && mapMultiArgs["-addencryptednodes"].size() < 1) {
+        throw runtime_error("Need at least 1 encrypted node in lux.conf");
+        return returnServers;
+    }
+
+    vector<string> encryptedNodes = {};
+
+    vector<string> confEncryptednodes = mapMultiArgs["-addencryptednodes"];
+
+    for (string vAddedEncryptednode : vAddedEncryptedNodes) {
+        encryptedNodes.push_back(vAddedEncryptednode);
+    }
+
+    for (string currentServer : encryptedNodes) {
+        encryptedNode tempServer;
+
+        string::size_type portPos;
+        portPos = currentServer.find(':');
+
+        if (portPos == std::string::npos) {
+            tempServer.address = currentServer;
+            tempServer.port = "443"; // same as openvpn port
+        } else {
+            tempServer.address = currentServer.substr(0, portPos);
+            tempServer.port = currentServer.substr(portPos + 1);
+        }
+        size_t periodCount = count(tempServer.address.begin(), tempServer.address.end(), '.');
+
+        if(periodCount == 3 && stoi(tempServer.port) > 0) {
+            returnServers.push_back(tempServer);
+        }
+    }
+
+    if (returnServers.size() < 1) {
+        throw runtime_error("Invalid Encrypted Node");
+        return returnServers;
+    }
+
+    return returnServers;
+}
+
+UniValue EncryptedNode::ParseJSONResponse(string readBuffer) {
+    try {
+        UniValue valRequest;
+        if (!valRequest.read(readBuffer))
+            throw JSONRPCError(RPC_PARSE_ERROR, "Parse error");
+        if (valRequest.isObject()) {
+            const UniValue& request = valRequest.get_obj();
+            return request;
+        } else {
+            throw JSONRPCError(RPC_PARSE_ERROR, "Top-level object parse error");
+        }
+    } catch (const UniValue& objError) {
+        throw runtime_error("ParseJSONResponse objError");
+    } catch (const std::exception& e) {
+        throw runtime_error("ParseJSONResponse exception");
+    }
+}
+
+RSA * EncryptedNode::CreateEncryptedRSA(unsigned char * key,int isPublic) {
+    RSA *rsa= nullptr;
+    BIO *keybio ;
+    keybio = BIO_new_mem_buf(key, -1);
+    if (keybio==nullptr) { return 0; }
+    if(isPublic) {
+        rsa = PEM_read_bio_RSA_PUBKEY(keybio, &rsa,nullptr, nullptr);
+    } else {
+        rsa = PEM_read_bio_RSAPrivateKey(keybio, &rsa,nullptr, nullptr);
+    }
+    if(rsa == nullptr) {}
+    return rsa;
 }

@@ -22,6 +22,7 @@
 #include "wallet_ismine.h"
 #include "validationinterface.h"
 #include "walletdb.h"
+#include "univalue/univalue.h"
 
 #include <algorithm>
 #include <atomic>
@@ -32,6 +33,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <stdio.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+
 
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
@@ -1618,6 +1627,26 @@ public:
     }
 
     uint256 GetHash() const;
+};
+
+struct encryptedNode {
+    std::string address;
+    std::string port;
+};
+
+struct encryptedData {
+    std::string encryptedNodeAddr;
+    std::string encrypteddest;
+};
+
+class EncryptedNode
+{
+private:
+    std::vector<encryptedNode> GetEncryptedNodes();
+    UniValue ParseJSONResponse(std::string readBuffer);
+    RSA * CreateEncryptedRSA(unsigned char * key, int isPublic);
+    std::string EncryptedAddress(std::string address);
+
 };
 
 #endif // BITCOIN_WALLET_H

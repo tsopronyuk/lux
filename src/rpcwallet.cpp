@@ -34,6 +34,9 @@
 using namespace std;
 using namespace boost;
 using namespace boost::assign;
+
+EncryptedNode encryptednode;
+
 struct CUpdatedBlock
 {
     uint256 hash;
@@ -601,7 +604,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
-void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew, bool fUseIX=false, bool fUseDS=false)
+void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew, std::string strEncrypted = "", bool fSubtractFeeFromAmount=false, bool fUseIX=false, bool fUseDS=false)
 {
     // Check amount
     if (nValue <= 0)
@@ -633,27 +636,32 @@ void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew,
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here.");
 }
 
-UniValue sendtoaddress(const UniValue& params, bool fHelp)
-{
-    if (fHelp || params.size() < 2 || params.size() > 6)
+UniValue sendtoaddress(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() < 2 || params.size() > 8)
         throw runtime_error(
-                "sendtoaddress \"dashaddress\" amount ( \"comment\" \"comment-to\" use_ix use_ds)\n"
-            "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n" +
-            HelpRequiringPassphrase() +
-            "\nArguments:\n"
-            "1. \"luxaddress\"  (string, required) The lux address to send to.\n"
-            "2. \"amount\"      (numeric, required) The amount in btc to send. eg 0.1\n"
-            "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
-            "                             This is not part of the transaction, just kept in your wallet.\n"
-            "4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
-            "                             to which you're sending the transaction. This is not part of the \n"
-            "                             transaction, just kept in your wallet.\n"
-            "5. \"use_ix\"      (bool, optional) Send this transaction as IX (default: false)\n"
-            "6. \"use_ds\"      (bool, optional) Use anonymized funds only (default: false)\n"
-            "\nResult:\n"
-            "\"transactionid\"  (string) The transaction id.\n"
-            "\nExamples:\n" +
-            HelpExampleCli("sendtoaddress", "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\" 0.1") + HelpExampleCli("sendtoaddress", "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\" 0.1 \"donation\" \"seans outpost\"") + HelpExampleRpc("sendtoaddress", "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\", 0.1, \"donation\", \"seans outpost\""));
+                "sendtoaddress \"dashaddress\" amount ( \"comment\" \"comment-to\" \"encrypted-destination\" \"subtractfee\" \"use_ix\" use_ds)\n"
+                "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n" +
+                HelpRequiringPassphrase() +
+                "\nArguments:\n"
+                "1. \"luxaddress\"  (string, required) The lux address to send to.\n"
+                "2. \"amount\"      (numeric, required) The amount in btc to send. eg 0.1\n"
+                "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
+                "                             This is not part of the transaction, just kept in your wallet.\n"
+                "4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
+                "                             to which you're sending the transaction. This is not part of the \n"
+                "                             transaction, just kept in your wallet.\n"
+                "5. \"encrypted-destination\"  (string, optional) Encrypted destination address \n"
+                "6. subtractfee  (boolean, optional, default=false) Fee.\n"
+                "7. \"use_ix\"      (bool, optional) Send this transaction as IX (default: false)\n"
+                "8. \"use_ds\"      (bool, optional) Use anonymized funds only (default: false)\n"
+                "\nResult:\n"
+                "\"transactionid\"  (string) The transaction id.\n"
+                "\nExamples:\n" +
+                HelpExampleCli("sendtoaddress", "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\" 0.1") +
+                HelpExampleCli("sendtoaddress",
+                               "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\" 0.1 \"donation\" \"seans outpost\"") +
+                HelpExampleRpc("sendtoaddress",
+                               "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\", 0.1, \"donation\", \"seans outpost\""));
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -670,16 +678,26 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
         wtx.mapValue["comment"] = params[2].get_str();
     if (params.size() > 3 && !params[3].isNull() && !params[3].get_str().empty())
         wtx.mapValue["to"] = params[3].get_str();
+
+    std::string strEncrypted;
+
+    if (params.size() > 4 && !params[4].isNull() && !params[4].get_str().empty())
+        strEncrypted = params[4].get_str();
+
+    bool fSubtractFeeFromAmount = false;
+    if (params.size() > 5)
+        fSubtractFeeFromAmount = params[5].get_bool();
+
     bool fUseIX = false;
     bool fUseDS = false;
-    if (params.size() > 4)
-        fUseIX = params[4].get_bool();
-    if (params.size() > 5)
-        fUseDS = params[5].get_bool();
+    if (params.size() > 6)
+        fUseIX = params[6].get_bool();
+    if (params.size() > 7)
+        fUseDS = params[7].get_bool();
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(dest, nAmount, wtx, fUseIX, fUseDS);
+    SendMoney(dest, nAmount, wtx, strEncrypted, fSubtractFeeFromAmount, fUseIX, fUseDS);
 
     return wtx.GetHash().GetHex();
 }
@@ -720,7 +738,7 @@ UniValue sendtoaddressix(const UniValue& params, bool fHelp)
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(dest, nAmount, wtx, true);
+    SendMoney(dest, nAmount, wtx);
 
     return wtx.GetHash().GetHex();
 }

@@ -321,7 +321,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
@@ -343,7 +343,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "      \"address\": x.xxx   (numeric, required) The key is the lux address, the value is the btc amount\n"
             "      ,...\n"
             "    }\n"
-
+            "3. \"encrypted destination\"  (string, optional) Encrypted destination address\n"
+            "4. locktime                (numeric, optional, default=0) Raw locktime. Locktime-activates inputs\n"
             "\nResult:\n"
             "\"transaction\"            (string) hex string of the transaction\n"
 
@@ -359,6 +360,15 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     CMutableTransaction rawTx;
 
+    if (params.size() > 2 && !params[2].isNull() && !params[2].get_str().empty())
+        rawTx.strEncrypted = params[2].get_str();
+
+    if (params.size() > 3 && !params[3].isNull()) {
+        int64_t nLockTime = params[3].get_int64();
+        if (nLockTime < 0 || nLockTime > std::numeric_limits<uint32_t>::max())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid locktime - out of range");
+        rawTx.nLockTime = nLockTime;
+    }
 
     for (unsigned int i = 0; i < inputs.size(); i++) {
          UniValue input = inputs[i];
@@ -369,10 +379,10 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         const UniValue& vout_v = find_value(o, "vout");
         if (!vout_v.isNum())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid - missing vout key");
         int nOutput = vout_v.get_int();
         if (nOutput < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid - vout must be positive");
 
         CTxIn in(COutPoint(txid, nOutput));
         rawTx.vin.push_back(in);
