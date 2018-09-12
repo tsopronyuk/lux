@@ -527,50 +527,29 @@ UniValue getaccount(const UniValue& params, bool fHelp)
     return strAccount;
 }
 
-//TODO: use normal getnewaddress for now !!!
 UniValue getcoldstakeaddress(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() != 2)
         throw runtime_error(
-                "getcoldstakeaddres ( \"account\" )\n"
-                "\nReturns a new LUX address for receiving payments.\n"
-                "If 'account' is specified (recommended), it is added to the address book \n"
-                "so payments received with the address will be credited to 'account'.\n"
-                "\nArguments:\n"
-                "1. \"account\"        (string, optional) The account name for the address to be linked to. If not provided, the default account \"\" is used. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created if there is no account by the given name.\n"
-                "2. \"coldstake_address_type\"   (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype.\n"
-                "\nResult:\n"
-                "\"luxaddress\"    (string) The new lux address\n"
+                "getcoldstakeaddress \"coldstakeaddress\" \"spendingaddress\"\n");
                 "\nExamples:\n" +
-                HelpExampleCli("getcoldstakeaddres", "") + HelpExampleCli("getcoldstakeaddres", "\"\"") + HelpExampleCli("getcoldstakeaddres", "\"myaccount\"") + HelpExampleRpc("getcoldstakeaddres", "\"myaccount\""));
+                HelpExampleCli("getcoldstakeaddress", "\"LgAskSorXfCYUweZcCTpGNtpcFotS2rqDF\"");
 
-    LOCK2(cs_main, pwalletMain->cs_wallet);
+    CEncryptedAddress coldstakeAddress(params[0].get_str());
+    if (!coldstakeAddress.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid : ColdStake address");
 
-    // Parse the account first so we don't generate a key if there's an error
-    string strAccount;
-    if (params.size() > 0)
-        strAccount = AccountFromValue(params[0]);
+    CKeyID coldstakeKeyID;
+    coldstakeAddress.GetKeyID(coldstakeKeyID);
 
-    OutputType output_type = g_address_type;
-    if (!params[1].isNull()) {
-        output_type = ParseOutputType(params[1].get_str(), g_address_type);
-        if (output_type == OUTPUT_TYPE_NONE) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", params[1].get_str()));
-        }
-    }
+    CEncryptedAddress spendingAddress(params[1].get_str());
+    if (!spendingAddress.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid : Spending address");
 
-    if (!pwalletMain->IsLocked())
-        pwalletMain->TopUpKeyPool();
+    CKeyID spendingKeyID;
+    spendingAddress.GetKeyID(spendingKeyID);
 
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwalletMain->GetKeyFromPool(newKey))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-
-    pwalletMain->LearnRelatedScripts(newKey, output_type);
-    CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    pwalletMain->SetAddressBook(dest, strAccount, "receive");
-    return EncodeDestination(dest);
+    return CEncryptedAddress(coldstakeKeyID, spendingKeyID).ToString();
 }
 
 UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)

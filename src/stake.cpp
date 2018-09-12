@@ -454,6 +454,11 @@ bool Stake::CheckProof(CBlockIndex* const pindexPrev, const CBlock &block, uint2
     if (!GetTransaction(txin.prevout.hash, txPrev, consensusparams, prevBlockHash, true))
         return error("%s: read txPrev failed", __func__);
 
+    if (txPrev.vout[txin.prevout.n].scriptPubKey.IsColdStake())
+        for(unsigned int i = 0; i < tx.vout.size(); i++)
+            if(tx.vout[i].scriptPubKey != txPrev.vout[txin.prevout.n].scriptPubKey)
+                return("CheckProofOfStake(): Invalid IsColdStake");
+
     //verify signature and script
     const CAmount& amount = txPrev.vout[txin.prevout.n].nValue;
     bool fIsVerified = VerifyScript(txin.scriptSig, txPrev.vout[txin.prevout.n].scriptPubKey, tx.wit.vtxinwit.size() > 0 ? &tx.wit.vtxinwit[0].scriptWitness : NULL, STANDARD_SCRIPT_VERIFY_FLAGS,

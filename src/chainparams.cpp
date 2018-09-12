@@ -232,11 +232,12 @@ public:
         vSeeds.push_back(CDNSSeedData("45.32.187.166", "45.32.187.166"));         // DNSSeed
         ////////////////////////////////////////////////////////////////////////////////////////////////
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,48); // LUX address start with 'L'
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,63); // LUX script addresses start with 'S'
-        base58Prefixes[SECRET_KEY]     = std::vector<unsigned char>(1,155);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x07)(0x28)(0xA2)(0x4E).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x03)(0xD8)(0xA1)(0xE5).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[PUBKEY_ADDRESS]       = std::vector<unsigned char>(1,48); // LUX address start with 'L'
+        base58Prefixes[SCRIPT_ADDRESS]       = std::vector<unsigned char>(1,63); // LUX script addresses start with 'S'
+        base58Prefixes[IS_COLDSTAKE_ADDRESS] = std::vector<unsigned char>(1,125); // LUX coldstake addresses start with 's'
+        base58Prefixes[SECRET_KEY]           = std::vector<unsigned char>(1,155);
+        base58Prefixes[EXT_PUBLIC_KEY]       = boost::assign::list_of(0x07)(0x28)(0xA2)(0x4E).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[EXT_SECRET_KEY]       = boost::assign::list_of(0x03)(0xD8)(0xA1)(0xE5).convert_to_container<std::vector<unsigned char> >();
 
         bech32_hrp = "bc";
 
@@ -357,6 +358,7 @@ public:
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 48); // Testnet lux addresses start with 'l'
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 63);  // Testnet lux script addresses start with 'S'
+        base58Prefixes[IS_COLDSTAKE_ADDRESS] = std::vector<unsigned char>(1,125); // LUX coldstake addresses start with 's'
         base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1, 155);     // Testnet private keys start with '9' or 'c' (Bitcoin defaults)
         // Testnet lux BIP32 pubkeys start with 'DRKV'
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x3a)(0x80)(0x61)(0xa0).convert_to_container<std::vector<unsigned char> >();
@@ -577,6 +579,7 @@ public:
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,48); // LUX Start letter L
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,64);
+        base58Prefixes[IS_COLDSTAKE_ADDRESS] = std::vector<unsigned char>(1,125); // LUX coldstake addresses start with 's'
         base58Prefixes[SECRET_KEY]     = std::vector<unsigned char>(1,155);
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x07)(0x28)(0xA2)(0x4E).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x03)(0xD8)(0xA1)(0xE5).convert_to_container<std::vector<unsigned char> >();
