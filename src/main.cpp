@@ -2300,6 +2300,9 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
         }
     }
 
+    if(IsColdStakeEnabled(pindexPrev,Params().GetConsensus()))
+        nVersion |= nColdStakeMask;
+
     return nVersion;
 }
 
@@ -4178,6 +4181,10 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 //        return state.Invalid(error("%s : rejected nVersion=2 block", __func__),
 //            REJECT_OBSOLETE, "bad-version");
 //    }
+
+    if((block.nVersion & nColdStakeMask) != nColdStakeMask && IsColdStakeEnabled(pindexPrev,Params().GetConsensus()))
+         return state.DoS(10, error("%s : Rejected ; invalid coldstake block", __func__), REJECT_INVALID, "bad-coldstake-block");
+
 
     return true;
 }
