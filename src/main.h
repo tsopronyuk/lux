@@ -318,6 +318,8 @@ bool DisconnectBlockAndInputs(CValidationState& state, CTransaction& tx);
 
 bool IsWitnessLocked(const CBlockIndex* pindexPrev);
 
+bool IsColdStakeEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+
 // ***TODO***
 double ConvertBitsToDouble(unsigned int nBits);
 CAmount GetMasternodePosReward(int nHeight, CAmount blockValue);

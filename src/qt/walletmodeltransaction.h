@@ -34,6 +34,7 @@ public:
 
     void newPossibleKeyChange(CWallet* wallet);
     CReserveKey* getPossibleKeyChange();
+    bool fSpendColdStake;
 
 private:
     const QList<SendCoinsRecipient> recipients;

@@ -376,6 +376,20 @@ void SendCoinsDialog::send(QList<SendCoinsRecipient> recipients, QString strFee,
         return;
     }
 
+    if (currentTransaction.fSpendColdStake && (!model->getOptionsModel()->getCoinControlFeatures() ||
+       (model->getOptionsModel()->getCoinControlFeatures() && !CEncryptedAddress(CoinControlDialog::coinControl->destChange).IsColdStakeAddress(Params())))) {
+        SendConfirmationDialog confirmationDialog(tr("Confirm send"),
+                                                  tr("This transaction will spend coins stored in a coldstake address.<br>You didn't set any coldstake address"
+                                                     " for custome destination, so it won't be locked by the coldstake of the smartcontract.<br><br>Do you still want to make this transaction?"), SEND_CONFIRM_DELAY, this);
+        confirmationDialog.exec();
+        QMessageBox::StandardButton retval = (QMessageBox::StandardButton)confirmationDialog.result();
+
+        if(retval != QMessageBox::Yes) {
+            fNewRecipientAllowed = true;
+            return;
+        }
+    }
+
     CAmount txFee = currentTransaction.getTransactionFee();
     QString questionString = tr("Are you sure you want to send?");
     questionString.append("<br /><br />%1");

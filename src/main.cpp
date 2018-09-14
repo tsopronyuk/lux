@@ -7516,3 +7516,9 @@ LuxTransaction LuxTxConverter::createEthTX(const EthTransactionParams& etp, uint
     return txEth;
 }
 ///////////////////////////////////////////////////////////////////////
+
+
+bool IsColdStakeEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_COLDSTAKE, versionbitscache) == THRESHOLD_ACTIVE);
+}

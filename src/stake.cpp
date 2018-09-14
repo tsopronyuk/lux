@@ -455,7 +455,7 @@ bool Stake::CheckProof(CBlockIndex* const pindexPrev, const CBlock &block, uint2
         return error("%s: read txPrev failed", __func__);
 
     if (txPrev.vout[txin.prevout.n].scriptPubKey.IsColdStake())
-        for(unsigned int i = 0; i < tx.vout.size(); i++)
+        for(unsigned int i = 1; i < tx.vout.size() - 1; i++) // First output is empty
             if(tx.vout[i].scriptPubKey != txPrev.vout[txin.prevout.n].scriptPubKey)
                 return("CheckProofOfStake(): Invalid IsColdStake");
 

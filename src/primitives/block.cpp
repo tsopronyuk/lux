@@ -200,10 +200,12 @@ bool CBlock::CheckBlockSignature() const
 
     const CTxOut& txout = vtx[1].vout[1];
 
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) {
+        LogPrintf("CheckBlockSignature: Bad Block - Invalid signature\n");
         return false;
+    }
 
-    if (whichType == TX_PUBKEY)
+    if (whichType == TX_PUBKEY || whichType == TX_COLDSTAKE)
     {
         valtype& vchPubKey = vSolutions[0];
         CPubKey pubkey(vchPubKey);
