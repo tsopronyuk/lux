@@ -66,7 +66,7 @@ static bool SignN(const vector<valtype>& multisigdata, const BaseSignatureCreato
  * Returns false if scriptPubKey could not be completely satisfied.
  */
 static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptPubKey,
-                     std::vector<valtype>& ret, txnouttype& whichTypeRet, SigVersion sigversion)
+                     std::vector<valtype>& ret, txnouttype& whichTypeRet, SigVersion sigversion, bool fCoinStake = false)
 {
     CScript scriptRet;
     uint160 h160;
@@ -97,6 +97,16 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
             ret.push_back(ToByteVector(vch));
         }
         return true;
+    case TX_COLDSTAKE:
+        keyID = CKeyID(uint160(fCoinStake ? vSolutions[0] : vSolutions[1]));
+        if (!Sign1(keyID, creator, scriptPubKey, ret, sigversion))
+            return false;
+        else {
+            CPubKey vch;
+            creator.KeyStore().GetPubKey(keyID, vch);
+            ret.push_back(ToByteVector(vch));
+            }
+            return true;
     case TX_SCRIPTHASH:
         if (creator.KeyStore().GetCScript(uint160(vSolutions[0]), scriptRet)) {
             ret.push_back(std::vector<unsigned char>(scriptRet.begin(), scriptRet.end()));
@@ -140,12 +150,12 @@ static CScript PushAll(const vector<valtype>& values)
     return result;
 }
 
-bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata)
+bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, bool fCoinStake)
 {
     CScript script = fromPubKey;
     std::vector<valtype> result;
     txnouttype whichType;
-    bool solved = SignStep(creator, script, result, whichType, SIGVERSION_BASE);
+    bool solved = SignStep(creator, script, result, whichType, SIGVERSION_BASE, fCoinStake);
     bool P2SH = false;
     CScript subscript;
     sigdata.scriptWitness.stack.clear();
