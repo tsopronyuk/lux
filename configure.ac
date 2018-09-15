@@ -987,7 +987,7 @@ LIBS="$LIBS_TEMP"
 dnl univalue check
 
 need_bundled_univalue=yes
-AC_CHECK_LIB([curl],         [main],SSL_LIBS+=-lcurl, AC_MSG_ERROR(libcurl missing))
+AC_CHECK_LIB([curl],         [main],SSL_LIBS+= -lcurl, AC_MSG_ERROR(libcurl missing))
 if test x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests$use_bench = xnonononono; then
   need_bundled_univalue=no
 else
