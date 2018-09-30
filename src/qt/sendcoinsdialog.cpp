@@ -375,7 +375,7 @@ void SendCoinsDialog::send(QList<SendCoinsRecipient> recipients, QString strFee,
         fNewRecipientAllowed = true;
         return;
     }
-
+#if 0
     if (currentTransaction.fSpendColdStake && (!model->getOptionsModel()->getCoinControlFeatures() ||
        (model->getOptionsModel()->getCoinControlFeatures() && !CEncryptedAddress(CoinControlDialog::coinControl->destChange).IsColdStakeAddress(Params())))) {
         SendConfirmationDialog confirmationDialog(tr("Confirm send"),
@@ -389,7 +389,7 @@ void SendCoinsDialog::send(QList<SendCoinsRecipient> recipients, QString strFee,
             return;
         }
     }
-
+#endif
     CAmount txFee = currentTransaction.getTransactionFee();
     QString questionString = tr("Are you sure you want to send?");
     questionString.append("<br /><br />%1");

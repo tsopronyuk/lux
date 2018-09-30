@@ -31,7 +31,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
-#include <curl/curl.h>
+//#include <curl/curl.h>
 
 #include <stdio.h>
 #include <iterator>
