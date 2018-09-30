@@ -463,7 +463,7 @@ bool Stake::CheckProof(CBlockIndex* const pindexPrev, const CBlock &block, uint2
     const CAmount& amount = txPrev.vout[txin.prevout.n].nValue;
     bool fIsVerified = VerifyScript(txin.scriptSig, txPrev.vout[txin.prevout.n].scriptPubKey, tx.wit.vtxinwit.size() > 0 ? &tx.wit.vtxinwit[0].scriptWitness : NULL, STANDARD_SCRIPT_VERIFY_FLAGS,
                                     TransactionSignatureChecker(&tx, 0, amount));
-    if (!fIsVerified)
+    if (!fIsVerified < amount)
         return error("%s: VerifySignature failed on coinstake %s", __func__, tx.GetHash().ToString().c_str());
 
     CBlockIndex* pindex = LookupBlockIndex(prevBlockHash);
@@ -669,7 +669,7 @@ bool Stake::CreateCoinStake(CWallet* wallet, const CKeyStore& keystore, unsigned
     txNew.vout.push_back(CTxOut(0, scriptEmpty));
 
     // Choose coins to use
-    int64_t nBalance = wallet->GetBalance();
+    int64_t nBalance = wallet->GetColdstakeBalance();
 
     if (mapArgs.count("-reservebalance") && !ParseMoney(mapArgs["-reservebalance"], nReserveBalance)) {
         return error("%s: invalid reserve balance amount", __func__);
@@ -729,6 +729,15 @@ bool Stake::CreateCoinStake(CWallet* wallet, const CKeyStore& keystore, unsigned
             txnouttype whichType;
             CScript scriptPubKeyOut;
             scriptPubKeyKernel = pcoin.first->vout[pcoin.second].scriptPubKey;
+            bool fModeColdStake = false;
+
+            if ((HasColdstakeOp(scriptPubKeyKernel))) {
+                fModeColdStake = true;
+                if (!GetColdstakeScriptPath(scriptPubKeyKernel, scriptPubKeyOut))
+                    continue;
+                scriptPubKeyKernel = scriptPubKeyOut;
+            }
+
             if (!Solver(scriptPubKeyKernel, whichType, vSolutions)) {
                 LogPrintf("%s: failed to parse kernel\n", __func__);
                 break;
@@ -742,16 +751,18 @@ bool Stake::CreateCoinStake(CWallet* wallet, const CKeyStore& keystore, unsigned
                     LogPrintf("%s: no support for kernel type=%d\n", __func__, whichType);
                 break; // only support pay to public key and pay to address
             } else if (whichType == TX_PUBKEYHASH) { // pay to address type
-                //convert to pay to public key type
+                LogPrintf("%s: no support for kernel type=%d\n", __func__, whichType);
+                break;  // only support pay to pubkey hash
+            }
                 CKey key;
                 CKeyID keyID = CKeyID(uint160(vSolutions[0]));
                 if (!pwalletMain->GetKey(keyID, key))
                     return false;
 
+            if (fModeColdStake)
                 scriptPubKeyOut << key.GetPubKey() << OP_CHECKSIG;
-            } else {
+            else
                 scriptPubKeyOut = scriptPubKeyKernel;
-            }
 
             auto nValueIn = pcoin.first->vout[pcoin.second].nValue;
             txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));

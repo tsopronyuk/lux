@@ -1602,6 +1602,28 @@ CAmount CWallet::GetBalance() const
     return nTotal;
 }
 
+CAmount CWallet::GetColdstakeBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        if (!MoneyRange(nTotal)) {
+            throw std::runtime_error(string(__func__) + ": value out of range");
+        }
+
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it) {
+            const CWalletTx *pcoin = &(*it).second;
+            if (!pcoin->IsTrusted())
+                continue;
+
+            nTotal += pcoin->GetAvailableCredit();
+            nTotal += pcoin->GetAvailableWatchOnlyCredit();
+        }
+    }
+
+    nTotal += CWallet::GetBalance();
+    return nTotal;
+};
+
 CAmount CWallet::GetAnonymizableBalance() const
 {
     CAmount nTotal = 0;
