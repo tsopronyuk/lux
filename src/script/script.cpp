@@ -147,15 +147,14 @@ const char* GetOpName(opcodetype opcode)
     case OP_NOP6                   : return "OP_NOP6";
     case OP_NOP7                   : return "OP_NOP7";
     case OP_NOP8                   : return "OP_NOP8";
-    case OP_NOP9                   : return "OP_NOP9";
+    //case OP_NOP9                   : return "OP_NOP9";
+    case OP_COLDSTAKE              : return "OP_COLDSTAKE";
     case OP_NOP10                  : return "OP_NOP10";
 
     // byte code execution
     case OP_CREATE                 : return "OP_CREATE";
     case OP_CALL                   : return "OP_CALL";
     case OP_SPEND                 : return "OP_SPEND";
-
-    case OP_COLDSTAKE              : return "OP_COLDSTAKE";
 
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 

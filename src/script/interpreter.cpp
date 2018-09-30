@@ -433,8 +433,16 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     break;
                 }
 
+                case OP_COLDSTAKE:
+                {
+                    opcodetype opbool = checker.IsColdStake() ? OP_TRUE : OP_FALSE;
+                    CScriptNum bn(opbool);
+                    stack.push_back(bn.getvch());
+                    break;
+                }
+
                 case OP_NOP1: case OP_NOP4: case OP_NOP5:
-                case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
+                case OP_NOP6: case OP_NOP7: case OP_NOP8:/*case OP_NOP9:*/case OP_NOP10:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
                         return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS);
@@ -1046,11 +1054,13 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     return true; // temp
                 }
                 break;
+#if 0
                 case OP_COLDSTAKE:
                 {
                     stack.push_back(checker.IsColdStake() ? vchTrue : vchFalse);
                 }
                     break;
+#endif
                 ////////////////////////////////////////////////////////
 
                 default:
@@ -1604,3 +1614,110 @@ size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey,
 
     return 0;
 }
+
+
+bool HasColdstakeOp(const CScript &script) {
+    CScript::const_iterator pc = script.begin();
+
+    if (pc == script.end())
+        return false;
+
+    opcodetype opcode;
+    valtype vchPushValue;
+    if (!script.GetOp(pc, opcode, vchPushValue))
+        return false;
+
+    if (opcode == OP_COLDSTAKE)
+        return true;
+
+    return false;
+};
+
+bool GetColdstakeScriptPath(const CScript &scriptIn, CScript &scriptOut) {
+    CScript::const_iterator pc = scriptIn.begin();
+    CScript::const_iterator pend = scriptIn.end();
+    CScript::const_iterator pcStart = pc;
+    opcodetype opcode;
+    valtype vchPushValue;
+
+    bool fFoundOp = false;
+    while (pc < pend) {
+        if (!scriptIn.GetOp(pc, opcode, vchPushValue))
+            break;
+
+        if (!fFoundOp && opcode == OP_COLDSTAKE) {
+            pc++;
+            pcStart = pc;
+            fFoundOp = true;
+            continue;
+        };
+
+        if (fFoundOp && opcode == OP_ELSE) {
+            pc--;
+            scriptOut = CScript(pcStart, pc);
+            return true;
+        };
+    };
+    return false;
+};
+
+bool GetNonColdstakeScriptPath(const CScript &scriptIn, CScript &scriptOut) {
+    CScript::const_iterator pc = scriptIn.begin();
+    CScript::const_iterator pend = scriptIn.end();
+    CScript::const_iterator pcStart = pc;
+    opcodetype opcode;
+    valtype vchPushValue;
+
+    bool fFoundOp = false;
+    while (pc < pend) {
+        if (!scriptIn.GetOp(pc, opcode, vchPushValue))
+            break;
+
+        if (!fFoundOp && opcode == OP_ELSE) {
+            pcStart = pc;
+            fFoundOp = true;
+            continue;
+        };
+
+        if (fFoundOp && opcode == OP_ENDIF) {
+            pc--;
+            scriptOut = CScript(pcStart, pc);
+            return true;
+        };
+    };
+    return false;
+};
+
+bool SplitColdstakeScript(const CScript &scriptIn, CScript &scriptOutA, CScript &scriptOutB) {
+    CScript::const_iterator pc = scriptIn.begin();
+    CScript::const_iterator pend = scriptIn.end();
+    CScript::const_iterator pcStart = pc;
+    opcodetype opcode;
+    valtype vchPushValue;
+
+    bool fFoundOp = false, fFoundElse = false;
+    while (pc < pend) {
+        if (!scriptIn.GetOp(pc, opcode, vchPushValue))
+            break;
+
+        if (!fFoundOp && opcode == OP_COLDSTAKE) {
+            pc++;
+            pcStart = pc;
+            fFoundOp = true;
+            continue;
+        };
+
+        if (fFoundElse && opcode == OP_ENDIF) {
+            pc--;
+            scriptOutB = CScript(pcStart, pc);
+            return true;
+        };
+
+        if (fFoundOp && opcode == OP_ELSE) {
+            scriptOutA = CScript(pcStart, pc-1);
+            pcStart = pc;
+            fFoundElse = true;
+        };
+    };
+    return false;
+};

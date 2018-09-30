@@ -200,4 +200,9 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 
 size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags);
 
+bool HasColdstakeOp(const CScript &script);
+bool GetColdstakeScriptPath(const CScript &scriptIn, CScript &scriptOut);
+bool GetNonColdstakeScriptPath(const CScript &scriptIn, CScript &scriptOut);
+bool SplitColdstakeScript(const CScript &scriptIn, CScript &scriptOutA, CScript &scriptOutB);
+
 #endif // BITCOIN_SCRIPT_INTERPRETER_H

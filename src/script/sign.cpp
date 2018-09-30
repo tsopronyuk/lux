@@ -73,8 +73,21 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     ret.clear();
 
     vector<valtype> vSolutions;
-    if (!Solver(scriptPubKey, whichTypeRet, vSolutions))
-        return false;
+    if (HasColdstakeOp(scriptPubKey)) {
+        CScript scriptPath;
+        if (creator.IsCoinStake()) {
+            if (!GetColdstakeScriptPath(scriptPubKey, scriptPath))
+                return false;
+        } else {
+            if (!GetNonColdstakeScriptPath(scriptPubKey, scriptPath))
+                return false;
+        }
+        if (!Solver(scriptPath, whichTypeRet, vSolutions))
+            return false;
+    } else {
+        if (!Solver(scriptPubKey, whichTypeRet, vSolutions))
+            return false;
+    };
 
     CKeyID keyID;
     switch (whichTypeRet)

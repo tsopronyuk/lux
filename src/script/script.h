@@ -176,13 +176,13 @@ enum opcodetype
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,
     OP_NOP9 = 0xb8,
+    OP_COLDSTAKE = OP_NOP9,
     OP_NOP10 = 0xb9,
 
     // Execute EXT byte code.
     OP_CREATE = 0xc1,
     OP_CALL = 0xc2,
     OP_SPEND = 0xc3,
-    OP_COLDSTAKE = 0xc4,
 
     // template matching params
     OP_GAS_PRICE = 0xf5,
