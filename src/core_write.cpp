@@ -94,6 +94,18 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     for (const CTxDestination& addr : addresses)
         a.push_back(EncodeDestination(addr));
     out.pushKV("addresses", a);
+
+    if (HasColdstakeOp(scriptPubKey)) {
+        CScript scriptColdStake;
+        if (GetColdstakeScriptPath(scriptPubKey, scriptColdStake))
+            if (ExtractDestinations(scriptColdStake, type, addresses, nRequired)) {
+                UniValue a(UniValue::VARR);
+                for (const CTxDestination& addr : addresses) {
+                    a.push_back(EncodeDestination(addr));
+                }
+                out.pushKV("coldstakeadresses", a);
+            }
+    }
 }
 
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
